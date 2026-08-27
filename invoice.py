@@ -384,7 +384,7 @@ class InvoiceView(discord.ui.View):
             description=(
                 f"A **staff member** has created an **invoice** for"
                 f" {self.target_user.mention} regarding an **order** they"
-                " placed with us.\n\n<:invoice_details:1542640219495604254>**__Invoice details__ :**"
+                " placed with us.\n\n<:invoice_details:1542640219495604254> **__Invoice details__ :**"
             ),
             color=discord.Color.from_str("#0058ff"),
         )
