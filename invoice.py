@@ -576,7 +576,6 @@ class InvoiceCog(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
         self.web_runner = None
-        # Démarrage du serveur web aiohttp pour l'IPN sur le port défini par Render (ou 10000 par défaut)
         self.bot.loop.create_task(self.start_web_server())
 
     async def start_web_server(self):
@@ -604,11 +603,15 @@ class InvoiceCog(commands.Cog):
             try:
                 data = await request.post()
             except Exception:
-                return web.Response(status=400, text="Invalid payload")
+                data = {}
 
-        # Récupération de la description du paiement / identifiant de facture envoyé par le service de paiement
-        # On s'attend généralement à recevoir un champ "description" ou "custom" ou "item_name" contenant "Order INV-XXXXX"
-        payment_desc = data.get("description") or data.get("custom") or data.get("item_name")
+        # Récupération sécurisée du champ correspondant à la référence de la facture
+        payment_desc = (
+            data.get("description") 
+            or data.get("custom") 
+            or data.get("item_name") 
+            or data.get("payment_status")
+        )
         
         if not payment_desc or payment_desc not in PENDING_INVOICES:
             return web.Response(status=404, text="Invoice not found or invalid description")
@@ -617,12 +620,9 @@ class InvoiceCog(commands.Cog):
         user_id = invoice_info["user_id"]
         total_amount = invoice_info["total"]
         
-        # Créditer automatiquement les coins à l'utilisateur (par exemple 1 coin par euro ou selon ta logique)
-        # Ajuste le multiplicateur si besoin (ex: int(total_amount))
         coins_to_add = int(total_amount)
         new_balance = update_user_coins(user_id, coins_to_add)
 
-        # Mettre à jour le message Discord de la facture
         try:
             channel = self.bot.get_channel(invoice_info["channel_id"])
             if not channel:
