@@ -411,7 +411,7 @@ class InvoiceView(discord.ui.View):
             value=(
                 f"The **total price** of your **order** is :\n\n"
                 f"```{total_str} €```\n\n"
-                f"<:question:1542297376755155044> Please **check carefully**"
+                f"<:info:1542297839026053190> Please **check carefully**"
                 " for any **errors**; if you find a **mistake**, please let"
                 " us know so we can **issue a new one**."
             ),
