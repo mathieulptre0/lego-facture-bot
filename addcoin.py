@@ -106,7 +106,7 @@ class AddCoin(commands.Cog):
 
     try:
       embed_dm = discord.Embed(
-          title="<:bank:1542275524087259286> Updating your coin balance",
+          title="<:bank:1542297721375957042> Updating your coin balance",
           description=(
               "An **administrator** has just **credited** your **account** with"
               f" **coins** !\n\n<:coin:1542297155660812348> __**Coins added**__ :"
