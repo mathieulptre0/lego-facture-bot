@@ -616,7 +616,7 @@ class InvoiceCog(commands.Cog):
             message = await channel.fetch_message(invoice_info["message_id"])
             
             completed_embed = discord.Embed(
-                title="**Order successfully completed**",
+                title="**Order successfully completed !**",
                 description=(
                     "Thank you for **placing your trust** in us! Your **order** has been **paid for in full**.\n\n"
                     "We are **processing your order** as **quickly as possible** and will **keep you updated** on its progress.\n\n"
