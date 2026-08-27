@@ -325,7 +325,7 @@ class InvoiceView(discord.ui.View):
                 inline=True,
             )
             embed.add_field(
-                name="<:quantity:1542297376755155044> Quantity",
+                name="<:quantity:1542640024623783946> Quantity",
                 value="\n".join(qtys_col),
                 inline=True,
             )
@@ -384,7 +384,7 @@ class InvoiceView(discord.ui.View):
             description=(
                 f"A **staff member** has created an **invoice** for"
                 f" {self.target_user.mention} regarding an **order** they"
-                " placed with us.\n\n**__Invoice details__ :**"
+                " placed with us.\n\n<:invoice_details:1542640219495604254>**__Invoice details__ :**"
             ),
             color=discord.Color.from_str("#0058ff"),
         )
@@ -401,7 +401,7 @@ class InvoiceView(discord.ui.View):
                 inline=True,
             )
             final_embed.add_field(
-                name="<:quantity:1542297376755155044> Quantity",
+                name="<:quantity:1542640024623783946> Quantity",
                 value="\n".join(qtys_col),
                 inline=True,
             )
