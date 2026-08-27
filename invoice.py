@@ -1,4 +1,6 @@
 from datetime import datetime
+import json
+import os
 import random
 import string
 import discord
@@ -11,6 +13,30 @@ ALLOWED_ROLE_ID = 1542206470970671214
 
 # Dictionnaire global pour stocker les factures en attente de paiement
 PENDING_INVOICES = {}
+
+COINS_FILE = "coins_db.json"
+
+def load_coins():
+    if os.path.exists(COINS_FILE):
+        try:
+            with open(COINS_FILE, "r") as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+def save_coins(data):
+    with open(COINS_FILE, "w") as f:
+        json.dump(data, f, indent=4)
+
+def update_user_coins(user_id, amount):
+    data = load_coins()
+    uid = str(user_id)
+    current = data.get(uid, 0)
+    new_total = current + amount
+    data[uid] = new_total
+    save_coins(data)
+    return new_total
 
 
 class AddProductModal(discord.ui.Modal, title="Add a product"):
@@ -486,6 +512,7 @@ class InvoiceView(discord.ui.View):
         PENDING_INVOICES[payment_desc] = {
             "message_id": sent_msg.id,
             "channel_id": target_chan.id,
+            "user_id": self.target_user.id,
             "total": float(total_str.replace(",", ".")),
             "footer_text": self.footer_text,
             "bot_avatar": self.bot_avatar,
@@ -548,6 +575,82 @@ class InvoiceCog(commands.Cog):
 
     def __init__(self, bot):
         self.bot = bot
+        self.web_runner = None
+        # Démarrage du serveur web aiohttp pour l'IPN sur le port défini par Render (ou 10000 par défaut)
+        self.bot.loop.create_task(self.start_web_server())
+
+    async def start_web_server(self):
+        app = web.Application()
+        app.router.add_post('/ipn', self.handle_ipn)
+        app.router.add_get('/', self.handle_index)
+        
+        runner = web.AppRunner(app)
+        await runner.setup()
+        port = int(os.environ.get("PORT", 10000))
+        site = web.TCPSite(runner, '0.0.0.0', port)
+        try:
+            await site.start()
+            print(f"[IPN Web Server] Running successfully on port {port}")
+        except Exception as e:
+            print(f"[IPN Web Server] Failed to start: {e}")
+
+    async def handle_index(self, request):
+        return web.Response(text="Receipt Tool Bot IPN Server is running!")
+
+    async def handle_ipn(self, request):
+        try:
+            data = await request.json()
+        except Exception:
+            try:
+                data = await request.post()
+            except Exception:
+                return web.Response(status=400, text="Invalid payload")
+
+        # Récupération de la description du paiement / identifiant de facture envoyé par le service de paiement
+        # On s'attend généralement à recevoir un champ "description" ou "custom" ou "item_name" contenant "Order INV-XXXXX"
+        payment_desc = data.get("description") or data.get("custom") or data.get("item_name")
+        
+        if not payment_desc or payment_desc not in PENDING_INVOICES:
+            return web.Response(status=404, text="Invoice not found or invalid description")
+
+        invoice_info = PENDING_INVOICES.pop(payment_desc)
+        user_id = invoice_info["user_id"]
+        total_amount = invoice_info["total"]
+        
+        # Créditer automatiquement les coins à l'utilisateur (par exemple 1 coin par euro ou selon ta logique)
+        # Ajuste le multiplicateur si besoin (ex: int(total_amount))
+        coins_to_add = int(total_amount)
+        new_balance = update_user_coins(user_id, coins_to_add)
+
+        # Mettre à jour le message Discord de la facture
+        try:
+            channel = self.bot.get_channel(invoice_info["channel_id"])
+            if not channel:
+                channel = await self.bot.fetch_channel(invoice_info["channel_id"])
+            
+            message = await channel.fetch_message(invoice_info["message_id"])
+            
+            paid_embed = discord.Embed(
+                title="**<:check2:1542297108638335066> Invoice Paid Successfully !**",
+                description=(
+                    f"This invoice has been **successfully paid** and closed.\n\n"
+                    f"**Payment Reference:** ````{payment_desc}````\n"
+                    f"**Amount Paid:** ````{total_amount} €````\n"
+                    f"**Coins Credited:** ````{coins_to_add} coins````\n"
+                    f"**New User Balance:** ````{new_balance} coins````"
+                ),
+                color=discord.Color.from_str("#00ff00"),
+            )
+            if invoice_info.get("bot_avatar"):
+                paid_embed.set_footer(text=invoice_info["footer_text"], icon_url=invoice_info["bot_avatar"])
+            else:
+                paid_embed.set_footer(text=invoice_info["footer_text"])
+
+            await message.edit(embed=paid_embed, view=None)
+        except Exception as e:
+            print(f"[IPN Error] Could not update Discord message: {e}")
+
+        return web.Response(status=200, text="IPN processed successfully")
 
     @app_commands.command(
         name="invoice", description="Manage and create invoices."
