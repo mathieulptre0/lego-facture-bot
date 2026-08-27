@@ -616,11 +616,25 @@ class InvoiceCog(commands.Cog):
         if not payment_desc or payment_desc not in PENDING_INVOICES:
             return web.Response(status=404, text="Invoice not found or invalid description")
 
-        invoice_info = PENDING_INVOICES.pop(payment_desc)
+        invoice_info = PENDING_INVOICES[payment_desc]
+        expected_total = invoice_info["total"]
+
+        # Récupération et conversion du montant payé transmis par l'IPN
+        raw_gross = data.get("mc_gross") or data.get("payment_gross") or "0"
+        try:
+            paid_amount = float(str(raw_gross).replace(",", "."))
+        except Exception:
+            paid_amount = 0.0
+
+        # Vérification stricte du montant (le montant payé doit être >= au montant attendu)
+        if paid_amount < expected_total:
+            return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
+
+        # Si le montant est correct, on retire la facture de la liste d'attente
+        PENDING_INVOICES.pop(payment_desc)
+
         user_id = invoice_info["user_id"]
-        total_amount = invoice_info["total"]
-        
-        coins_to_add = int(total_amount)
+        coins_to_add = int(expected_total)
         new_balance = update_user_coins(user_id, coins_to_add)
 
         try:
@@ -635,7 +649,7 @@ class InvoiceCog(commands.Cog):
                 description=(
                     f"This invoice has been **successfully paid** and closed.\n\n"
                     f"**Payment Reference:** ````{payment_desc}````\n"
-                    f"**Amount Paid:** ````{total_amount} €````\n"
+                    f"**Amount Paid:** ````{expected_total} €````\n"
                     f"**Coins Credited:** ````{coins_to_add} coins````\n"
                     f"**New User Balance:** ````{new_balance} coins````"
                 ),
