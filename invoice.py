@@ -618,7 +618,7 @@ class InvoiceCog(commands.Cog):
             completed_embed = discord.Embed(
                 title="<:check:1542642100938477680> **Order successfully completed !**",
                 description=(
-                    "<:heart:1542642642964455484> Thank you for **placing your trust** in us! Your **order** has been **paid for in full**.\n\n"
+                    "Thank you for **placing your trust** in us! Your **order** has been **paid for in full**. <:heart:1542642642964455484>\n\n"
                     "<:loading:1542642495480008794> We are **processing your order** as **quickly as possible** and will **keep you updated** on its progress.\n\n"
                     "<:question:1542297376755155044> If you have any **questions** or **specific additions** regarding your order, please **let us know here**."
                 ),
