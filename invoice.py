@@ -445,7 +445,7 @@ class InvoiceView(discord.ui.View):
                         "This is an **automated system**; please **follow the instructions precisely** "
                         "and **avoid making any errors**. We remind you that we **do not offer refunds** "
                         "and are in no way **responsible** for any **errors** you might make.\n\n"
-                        "To **pay your invoice**, please click the **button**: <:card:1542297063331729529> **Complete your order**\n\n"
+                        "To **pay your invoice**, please click the **button**: [<:card:1542297063331729529> **Complete your order**]\n\n"
                         "<:cart:1542297234404802570> **__Payment Information__ :**\n\n"
                         "**Invoice Total:**\n"
                         f"```{self.total_str} €```\n\n"
