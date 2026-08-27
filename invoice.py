@@ -14,30 +14,6 @@ ALLOWED_ROLE_ID = 1542206470970671214
 # Dictionnaire global pour stocker les factures en attente de paiement
 PENDING_INVOICES = {}
 
-COINS_FILE = "coins_db.json"
-
-def load_coins():
-    if os.path.exists(COINS_FILE):
-        try:
-            with open(COINS_FILE, "r") as f:
-                return json.load(f)
-        except Exception:
-            return {}
-    return {}
-
-def save_coins(data):
-    with open(COINS_FILE, "w") as f:
-        json.dump(data, f, indent=4)
-
-def update_user_coins(user_id, amount):
-    data = load_coins()
-    uid = str(user_id)
-    current = data.get(uid, 0)
-    new_total = current + amount
-    data[uid] = new_total
-    save_coins(data)
-    return new_total
-
 
 class AddProductModal(discord.ui.Modal, title="Add a product"):
     product_name = discord.ui.TextInput(
@@ -605,7 +581,7 @@ class InvoiceCog(commands.Cog):
             except Exception:
                 data = {}
 
-        # Récupération sécurisée du champ correspondant à la référence de la facture
+        # Récupération sécurisée de la référence de facture
         payment_desc = (
             data.get("description") 
             or data.get("custom") 
@@ -619,23 +595,18 @@ class InvoiceCog(commands.Cog):
         invoice_info = PENDING_INVOICES[payment_desc]
         expected_total = invoice_info["total"]
 
-        # Récupération et conversion du montant payé transmis par l'IPN
+        # Vérification du montant payé
         raw_gross = data.get("mc_gross") or data.get("payment_gross") or "0"
         try:
             paid_amount = float(str(raw_gross).replace(",", "."))
         except Exception:
             paid_amount = 0.0
 
-        # Vérification stricte du montant (le montant payé doit être >= au montant attendu)
         if paid_amount < expected_total:
             return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
 
-        # Si le montant est correct, on retire la facture de la liste d'attente
+        # Nettoyage de la facture en attente
         PENDING_INVOICES.pop(payment_desc)
-
-        user_id = invoice_info["user_id"]
-        coins_to_add = int(expected_total)
-        new_balance = update_user_coins(user_id, coins_to_add)
 
         try:
             channel = self.bot.get_channel(invoice_info["channel_id"])
@@ -644,23 +615,21 @@ class InvoiceCog(commands.Cog):
             
             message = await channel.fetch_message(invoice_info["message_id"])
             
-            paid_embed = discord.Embed(
-                title="**<:check2:1542297108638335066> Invoice Paid Successfully !**",
+            completed_embed = discord.Embed(
+                title="**Order successfully completed**",
                 description=(
-                    f"This invoice has been **successfully paid** and closed.\n\n"
-                    f"**Payment Reference:** ````{payment_desc}````\n"
-                    f"**Amount Paid:** ````{expected_total} €````\n"
-                    f"**Coins Credited:** ````{coins_to_add} coins````\n"
-                    f"**New User Balance:** ````{new_balance} coins````"
+                    "Thank you for **placing your trust** in us! Your **order** has been **paid for in full**.\n\n"
+                    "We are **processing your order** as **quickly as possible** and will **keep you updated** on its progress.\n\n"
+                    "If you have any **questions** or **specific additions** regarding your order, please **let us know here**."
                 ),
-                color=discord.Color.from_str("#00ff00"),
+                color=discord.Color.from_str("#0058ff"),
             )
             if invoice_info.get("bot_avatar"):
-                paid_embed.set_footer(text=invoice_info["footer_text"], icon_url=invoice_info["bot_avatar"])
+                completed_embed.set_footer(text=invoice_info["footer_text"], icon_url=invoice_info["bot_avatar"])
             else:
-                paid_embed.set_footer(text=invoice_info["footer_text"])
+                completed_embed.set_footer(text=invoice_info["footer_text"])
 
-            await message.edit(embed=paid_embed, view=None)
+            await message.edit(embed=completed_embed, view=None)
         except Exception as e:
             print(f"[IPN Error] Could not update Discord message: {e}")
 
