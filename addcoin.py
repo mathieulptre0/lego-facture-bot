@@ -87,7 +87,7 @@ class AddCoin(commands.Cog):
     nouveau_total = update_user_coins(user.id, number)
 
     embed_succes = discord.Embed(
-        title="<:check2:1542246531124568064> Coins addition successful",
+        title="<:check2:1542297108638335066> Coins addition successful",
         description=(
             "The **coins** have been **successfully added** to the **profile** of"
             f" the **user**.\n\n<:user:1542297519881592945>"
