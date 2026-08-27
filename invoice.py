@@ -127,7 +127,7 @@ class InvoiceSelectMenu(discord.ui.Select):
             options.append(
                 discord.SelectOption(
                     label="Back to menu",
-                    emoji="<:back:1542297642405593228>",
+                    emoji="<:back:1542638431598022770>",
                     value="back_to_menu",
                 )
             )
@@ -145,7 +145,7 @@ class InvoiceSelectMenu(discord.ui.Select):
             options.append(
                 discord.SelectOption(
                     label="Back to menu",
-                    emoji="<:back:1542297642405593228>",
+                    emoji="<:back:1542638431598022770>",
                     value="back_to_menu",
                 )
             )
@@ -536,7 +536,7 @@ class BackMenuButton(discord.ui.Button):
         super().__init__(
             label="Back",
             style=discord.ButtonStyle.secondary,
-            emoji="<:back:1542297642405593228>",
+            emoji="<:back:1542638431598022770>",
         )
 
     async def callback(self, interaction: discord.Interaction):
