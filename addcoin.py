@@ -31,6 +31,9 @@ class AddCoin(commands.Cog):
         user: discord.Member,
         number: int,
     ):
+        # Empêche l'expiration de l'interaction après 3 secondes
+        await interaction.response.defer(ephemeral=True)
+
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
         bot_name = self.bot.user.name if self.bot.user else "Bot"
         now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
@@ -52,7 +55,7 @@ class AddCoin(commands.Cog):
                 embed_refuse.set_footer(text=footer_text, icon_url=bot_avatar)
             else:
                 embed_refuse.set_footer(text=footer_text)
-            await interaction.response.send_message(embed=embed_refuse, ephemeral=True)
+            await interaction.followup.send(embed=embed_refuse, ephemeral=True)
             return
 
         nouveau_total = update_user_coins(user.id, number)
@@ -73,7 +76,7 @@ class AddCoin(commands.Cog):
         else:
             embed_succes.set_footer(text=footer_text)
 
-        await interaction.response.send_message(embed=embed_succes, ephemeral=True)
+        await interaction.followup.send(embed=embed_succes, ephemeral=True)
 
         try:
             embed_dm = discord.Embed(

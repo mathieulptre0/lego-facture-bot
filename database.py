@@ -17,7 +17,6 @@ def get_user_coins(user_id: int) -> int:
     return user_data["coins"] if user_data else 0
 
 def update_user_coins(user_id: int, amount: int) -> int:
-    # Récupère le solde actuel, ajoute le montant, et met à jour
     user_data = coins_collection.find_one({"user_id": user_id})
     current_coins = user_data["coins"] if user_data else 0
     new_total = current_coins + amount
