@@ -1008,7 +1008,6 @@ class TicketDownloadView(discord.ui.View):
   async def download_button_callback(
       self, interaction: discord.Interaction, button: discord.ui.Button
   ):
-    # Logique lors du clic sur le bouton de création/téléchargement
     if os.path.exists(self.pdf_path):
       file = discord.File(self.pdf_path, filename="Receipt.pdf")
       await interaction.response.send_message(
@@ -1030,7 +1029,6 @@ class ReceiptCog(commands.Cog):
       description="Affiche le panel d'initialisation des reçus",
   )
   async def setup_receipt(self, interaction: discord.Interaction):
-    # Récupération dynamique du nom, de l'avatar du bot et de la date (exactement comme dans addcoin.py)
     bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
     bot_name = self.bot.user.name if self.bot.user else "Bot"
     now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
@@ -1053,13 +1051,8 @@ class ReceiptCog(commands.Cog):
         color=discord.Color.from_str("#0058ff"),
     )
 
-    # Application rigoureuse du footer dynamique avec l'icône du bot
-    if bot_avatar:
-      embed.set_footer(text=footer_text, icon_url=bot_avatar)
-    else:
-      embed.set_footer(text=footer_text)
+    embed.set_footer(text=footer_text, icon_url=bot_avatar)
 
-    # Génération fictive d'un PDF par défaut pour le bouton du panel (ou adaptation selon ton flux)
     dummy_pdf_path = generer_ticket_pdf(
         nom_article="Article par défaut",
         prix_article_str="5.99 €",
