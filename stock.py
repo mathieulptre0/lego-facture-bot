@@ -65,20 +65,31 @@ class StockPanelView(discord.ui.View):
         self.add_item(StockSelect(self))
 
     async def update_panel(self, interaction: discord.Interaction):
-        embed = interaction.message.embeds[0]
-        
-        desc = (
-            "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
-            "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
+        embed = discord.Embed(
+            title="Stock panel",
+            description=(
+                "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
+                "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
+            ),
+            color=0x0058ff
         )
         
         if self.temp_products:
-            desc += "\n\n<:box:1542297038283079770> **__Future stock__ :**\n\n"
-            desc += "<:cart:1542297234404802570> Products :     <:number:1543005258068918302> Number in stock :     <:euro:1542884660105715842> Price :\n\n"
-            for p in self.temp_products:
-                desc += f"`{p['name']}`     `{p['qty']}`     `{p['price']} €`\n\n"
+            embed.add_field(
+                name="\u200b",
+                value="<:box:1542297038283079770> **__Future stock__ :**",
+                inline=False
+            )
+            names = [f"`{p['name']}`" for p in self.temp_products]
+            prices = [f"`{p['price']} €`" for p in self.temp_products]
+            qtys = [f"`{p['qty']}`" for p in self.temp_products]
 
-        embed.description = desc
+            embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
+            embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
+            embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+
+        embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
+
         if not interaction.response.is_done():
             await interaction.response.edit_message(embed=embed, view=self)
         else:
@@ -96,26 +107,30 @@ class StockPanelView(discord.ui.View):
                 title="<:stock:1543004710427041932> Stock",
                 description=(
                     "Here is our **shop's current inventory**; the **stock updates automatically** whenever items become available !\n\n"
-                    "<:box:1542297038283079770> **__Current stock__ :**\n\n"
-                    "<:cart:1542297234404802570> Products :     <:number:1543005258068918302> Number in stock :     <:euro:1542884660105715842> Price :\n\n"
+                    "<:box:1542297038283079770> **__Current stock__ :**"
                 ),
                 color=0x0058ff
             )
-            for p in self.temp_products:
-                public_embed.description += f"`{p['name']}`     `{p['qty']}`     `{p['price']} €`\n\n"
             
-            public_embed.description += f"If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**."
+            names = [f"`{p['name']}`" for p in self.temp_products]
+            prices = [f"`{p['price']} €`" for p in self.temp_products]
+            qtys = [f"`{p['qty']}`" for p in self.temp_products]
+
+            public_embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
+            public_embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
+            public_embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+
+            public_embed.add_field(
+                name="\u200b",
+                value=f"If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**.",
+                inline=False
+            )
             public_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
             
             await target_channel.send(embed=public_embed)
 
         self.temp_products = []
-        embed = interaction.message.embeds[0]
-        embed.description = (
-            "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
-            "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
-        )
-        await interaction.response.edit_message(embed=embed, view=self)
+        await self.update_panel(interaction)
         await interaction.followup.send("Stock successfully updated and sent!", ephemeral=True)
 
 class Stock(commands.Cog):
