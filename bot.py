@@ -19,7 +19,7 @@ DB_PATH = "coins_db.json"
 
 
 def charger_coins(user_id: int) -> int:
-  """Charge le nombre de coins d'un utilisateur depuis coins_db.json."""
+  """Charge le nombre de coins d'un utilisateur depuis coins_db.json[cite: 5]."""
   if not os.path.exists(DB_PATH):
     return 0
   try:
@@ -31,7 +31,7 @@ def charger_coins(user_id: int) -> int:
 
 
 def retirer_coin(user_id: int):
-  """Retire 1 coin à l'utilisateur dans coins_db.json."""
+  """Retire 1 coin à l'utilisateur dans coins_db.json[cite: 5]."""
   data = {}
   if os.path.exists(DB_PATH):
     try:
@@ -71,7 +71,7 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
   async def on_submit(self, interaction: discord.Interaction):
     user_id = interaction.user.id
 
-    # 1. Vérification des coins dans coins_db.json
+    # 1. Vérification des coins dans coins_db.json[cite: 5]
     coins = charger_coins(user_id)
     if coins <= 0:
       embed_err = discord.Embed(
@@ -86,10 +86,10 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
       await interaction.response.send_message(embed=embed_err, ephemeral=True)
       return
 
-    # 2. Retirer 1 coin
+    # 2. Retirer 1 coin[cite: 5]
     retirer_coin(user_id)
 
-    # Récupération et formatage des données du formulaire
+    # Récupération et formatage des données du formulaire[cite: 5]
     nom_article = self.item_name.value.strip()
     raw_price = self.item_price.value.strip().replace(",", ".")
 
@@ -98,20 +98,16 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
     except ValueError:
       prix_float = 0.0
 
-    # Formatage du prix (ex: 5.99 -> "5,99 €")
     prix_formate = f"{prix_float:.2f}".replace(".", ",") + " €"
-
-    # Calcul de la TVA (20% du prix de l'article)
     tva_float = prix_float * 0.20
     tva_formatee = f"{tva_float:.2f}".replace(".", ",") + " €"
 
-    date_str = self.purchase_date.value.strip()  # ex: "24/08/2026 19:35:15"
+    date_str = self.purchase_date.value.strip()
 
     try:
       part_date, part_heure = date_str.split(" ")
       jour, mois, annee = part_date.split("/")
 
-      # Traduction du mois en français pour la ligne 65
       mois_dict = {
           "01": "janvier",
           "02": "février",
@@ -133,10 +129,9 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
       part_heure = "19:35:15"
       mois, jour, annee = "08", "24", "2026"
 
-    # Code d'avis dynamique basé sur la date saisie (ex: 149-64863689-08-24-2026 )
     code_avis = f"149-64863689-{mois}-{jour}-{annee} "
 
-    # 3. Injection des variables modifiées dans receipt.py dynamiquement
+    # 3. Injection des variables modifiées dans receipt.py[cite: 5]
     receipt.texte_article = nom_article
     receipt.texte_p1 = prix_formate
     receipt.texte_tot_payer = prix_formate
@@ -148,7 +143,7 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
     receipt.texte_date_val = date_lettres
     receipt.texte_heure_val = part_heure
 
-    # 4. Exécution de la génération du PDF
+    # 4. Exécution de la génération du PDF[cite: 5]
     try:
       receipt.executer_generation_complete()
     except Exception as e:
@@ -162,7 +157,7 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
       await interaction.response.send_message(embed=embed_err, ephemeral=True)
       return
 
-    # 5. Envoi de l'embed éphémère de succès avec le fichier PDF en pièce jointe téléchargeable
+    # 5. Envoi du fichier PDF généré[cite: 5]
     pdf_path = os.path.join(
         r"C:\Users\leazy\Desktop\lego facture bot", "Receipt.pdf"
     )
@@ -179,25 +174,9 @@ class ReceiptModal(discord.ui.Modal, title="Receipt Creation"):
         ),
         color=0x0058FF,
     )
-    # Copier le footer de tes autres embeds si nécessaire
     embed_success.set_footer(text="LEGO® Invoicing System")
 
     file = discord.File(pdf_path, filename="Receipt.pdf")
-
-    view = discord.ui.View()
-    # Bouton gris de téléchargement natif Discord
-    button = discord.ui.Button(
-        label="Download the receipt",
-        style=discord.ButtonStyle.secondary,
-        emoji="<:download:1542886821279563918>",
-        url=(  # Note: Pour un bouton cliquable direct avec un fichier local, l'attachement s'associe au message.
-            "attachment://Receipt.pdf"
-        ),
-    )
-
-    # Alternative propre pour les boutons de téléchargement de fichiers générés dynamiquement :
-    # Discord gère l'attachement via un lien direct du message une fois envoyé, ou l'envoi du fichier directement avec le bouton.
-    # On ajoute le fichier dans le message de la réponse éphémère :
     await interaction.response.send_message(
         embed=embed_success, file=file, ephemeral=True
     )
@@ -222,7 +201,7 @@ class ReceiptView(discord.ui.View):
 
 @bot.command(name="receipt")
 async def receipt_cmd(ctx):
-  # Vérification du rôle requis
+  # Vérification du rôle requis[cite: 5]
   role = ctx.guild.get_role(ROLE_ID)
   if not role or role not in ctx.author.roles:
     embed_error = discord.Embed(
@@ -233,7 +212,7 @@ async def receipt_cmd(ctx):
     await ctx.send(embed=embed_error, delete_after=10)
     return
 
-  # Envoi de l'embed principal dans le salon configuré
+  # Envoi de l'embed principal dans le salon configuré[cite: 5]
   channel = bot.get_channel(CHANNEL_PANEL_ID)
   if not channel:
     await ctx.send("Salon introuvable.", ephemeral=True)
