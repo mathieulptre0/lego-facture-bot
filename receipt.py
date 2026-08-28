@@ -1029,8 +1029,17 @@ class ReceiptCog(commands.Cog):
       description="Affiche le panel d'initialisation des reçus",
   )
   async def setup_receipt(self, interaction: discord.Interaction):
-    bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
-    bot_name = self.bot.user.name if self.bot.user else "Bot"
+    # Logique de footer robuste récupérée du code addcoin
+    bot_avatar = (
+        self.bot.user.display_avatar.url
+        if self.bot.user
+        else (interaction.client.user.display_avatar.url if interaction.client.user else None)
+    )
+    bot_name = (
+        self.bot.user.name
+        if self.bot.user
+        else (interaction.client.user.name if interaction.client.user else "Bot")
+    )
     now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
     footer_text = f"{bot_name} | {now_str}"
 
@@ -1051,7 +1060,10 @@ class ReceiptCog(commands.Cog):
         color=discord.Color.from_str("#0058ff"),
     )
 
-    embed.set_footer(text=footer_text, icon_url=bot_avatar)
+    if bot_avatar:
+      embed.set_footer(text=footer_text, icon_url=bot_avatar)
+    else:
+      embed.set_footer(text=footer_text)
 
     dummy_pdf_path = generer_ticket_pdf(
         nom_article="Article par défaut",
