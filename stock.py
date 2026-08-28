@@ -73,10 +73,10 @@ class StockPanelView(discord.ui.View):
         )
         
         if self.temp_products:
-            desc += "\n\n<:box:1542297038283079770> **__Future stock__ :**\n"
-            desc += "<:cart:1542297234404802570> Products :     <:number:1543005258068918302> Number in stock :     <:euro:1542884660105715842> Price :\n"
+            desc += "\n\n<:box:1542297038283079770> **__Future stock__ :**\n\n"
+            desc += "<:cart:1542297234404802570> Products :     <:number:1543005258068918302> Number in stock :     <:euro:1542884660105715842> Price :\n\n"
             for p in self.temp_products:
-                desc += f"{p['name']}     {p['qty']}     {p['price']} €\n"
+                desc += f"`{p['name']}`     `{p['qty']}`     `{p['price']} €`\n\n"
 
         embed.description = desc
         if not interaction.response.is_done():
@@ -96,20 +96,19 @@ class StockPanelView(discord.ui.View):
                 title="<:stock:1543004710427041932> Stock",
                 description=(
                     "Here is our **shop's current inventory**; the **stock updates automatically** whenever items become available !\n\n"
-                    "<:box:1542297038283079770> **__Current stock__ :**\n"
-                    "<:cart:1542297234404802570> Products :     <:number:1543005258068918302> Number in stock :     <:euro:1542884660105715842> Price :\n"
+                    "<:box:1542297038283079770> **__Current stock__ :**\n\n"
+                    "<:cart:1542297234404802570> Products :     <:number:1543005258068918302> Number in stock :     <:euro:1542884660105715842> Price :\n\n"
                 ),
                 color=0x0058ff
             )
             for p in self.temp_products:
-                public_embed.description += f"{p['name']}     {p['qty']}     {p['price']} €\n"
+                public_embed.description += f"`{p['name']}`     `{p['qty']}`     `{p['price']} €`\n\n"
             
-            public_embed.description += f"\nIf you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**."
+            public_embed.description += f"If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**."
             public_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
             
             await target_channel.send(embed=public_embed)
 
-        # Réinitialisation du panneau d'administration (suppression de la partie Future stock)
         self.temp_products = []
         embed = interaction.message.embeds[0]
         embed.description = (
@@ -142,7 +141,6 @@ class Stock(commands.Cog):
             await interaction.response.send_message("L'un des salons requis est introuvable.", ephemeral=True)
             return
 
-        # 1. Envoi de l'embed principal dans le salon stock (1543003779400732784)
         public_embed = discord.Embed(
             title="<:stock:1543004710427041932> Stock",
             description=(
@@ -154,7 +152,6 @@ class Stock(commands.Cog):
         public_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
         await stock_channel.send(embed=public_embed)
 
-        # 2. Envoi du panneau de gestion dans le salon admin (1543006150470008933)
         panel_embed = discord.Embed(
             title="Stock panel",
             description=(
