@@ -6,13 +6,11 @@ from discord import app_commands, ui
 from discord.ext import commands
 from receipt import generer_ticket_pdf
 
-# Configuration des IDs demandés
 ROLE_AUTORISE_ID = 1542206470970671214
 SALON_ENVOI_ID = 1542876927201644595
 SALON_TICKET_SUPPORT_ID = 1542238377837989888
 COINS_DB_PATH = "coins_db.json"
 
-# Dictionnaire de traduction des mois pour la date en lettres
 MOIS_FR = {
     1: "janvier",
     2: "février",
@@ -35,7 +33,12 @@ def charger_coins(user_id: int) -> int:
   try:
     with open(COINS_DB_PATH, "r", encoding="utf-8") as f:
       data = json.load(f)
-      return data.get(str(user_id), 0)
+      if not isinstance(data, dict):
+        return 0
+      val = data.get(str(user_id), 0)
+      if isinstance(val, dict):
+        return val.get("coins", 0)
+      return int(val)
   except Exception:
     return 0
 
@@ -46,18 +49,25 @@ def deduire_coin(user_id: int):
     try:
       with open(COINS_DB_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
+        if not isinstance(data, dict):
+          data = {}
     except Exception:
-      pass
+      data = {}
 
   current = data.get(str(user_id), 0)
+  if isinstance(current, dict):
+    current = current.get("coins", 0)
+
+  current = int(current)
   if current > 0:
     data[str(user_id)] = current - 1
+  else:
+    data[str(user_id)] = 0
 
   with open(COINS_DB_PATH, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=4)
 
 
-# --- MODAL DU FORMULAIRE ---
 class ReceiptModal(ui.Modal, title="Receipt Creation"):
   item_name = ui.TextInput(
       label="Item name",
@@ -79,129 +89,142 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
 
   async def on_submit(self, interaction: discord.Interaction):
-    user_id = interaction.user.id
+    await interaction.response.defer(ephemeral=True)
 
-    # 1. Vérification des coins dans coins_db.json
-    coins = charger_coins(user_id)
-    if coins <= 0:
-      embed_err = discord.Embed(
-          description=(
-              "❌ You **don't have enough coins** in your account to generate a"
-              " receipt. Please open a ticket to order some!"
-          ),
-          color=discord.Color.red(),
-      )
-      return await interaction.response.send_message(
-          embed=embed_err, ephemeral=True
-      )
-
-    # 2. Validation et formatage du prix
     try:
-      raw_price = self.item_price.value.strip().replace(",", ".")
-      prix_float = float(raw_price)
-      prix_str_formate = f"{prix_float:.2f} €".replace(".", ",")
-    except ValueError:
-      return await interaction.response.send_message(
-          "❌ **Invalid price format.** Please enter a valid number (e.g.,"
-          " `5.99` or `1`).",
-          ephemeral=True,
-      )
-
-    # 3. Validation et parsing de la date
-    date_str_brute = self.purchase_date.value.strip()
-    try:
-      dt_obj = datetime.strptime(date_str_brute, "%d/%m/%Y %H:%M:%S")
-    except ValueError:
-      return await interaction.response.send_message(
-          "❌ **Invalid date format.** Please use: `JJ/MM/AAAA HH:MM:SS` (e.g.,"
-          " `24/08/2026 19:35:15`).",
-          ephemeral=True,
-      )
-
-    # Variables demandées pour le ticket :
-    texte_date_valeur = dt_obj.strftime("%d/%m/%Y %H:%M:%S")
-
-    jour_clean = str(dt_obj.day)
-    mois_txt = MOIS_FR[dt_obj.month]
-    annee_txt = dt_obj.year
-    texte_date_val = f"{jour_clean} {mois_txt} {annee_txt}"
-
-    texte_heure_val = dt_obj.strftime("%H:%M:%S")
-
-    mm = dt_obj.strftime("%m")
-    dd = dt_obj.strftime("%d")
-    yyyy = dt_obj.strftime("%Y")
-    texte_code_besoin = f"149-64863689-{mm}-{dd}-{yyyy} "
-
-    # Calcul TVA (20% du prix de l'article)
-    tva_float = prix_float * 0.20
-    tva_str_formate = f"{tva_float:.2f} €".replace(".", ",")
-
-    # 4. Déduction du coin
-    deduire_coin(user_id)
-
-    # 5. Appel de la fonction de génération PDF (provenant de receipt.py)
-    pdf_path = generer_ticket_pdf(
-        nom_article=self.item_name.value.strip(),
-        prix_article_str=prix_str_formate,
-        date_valeur=texte_date_valeur,
-        date_lettre=texte_date_val,
-        heure_valeur=texte_heure_val,
-        code_avis=texte_code_besoin,
-        tva_str=tva_str_formate,
-    )
-
-    if not pdf_path or not os.path.exists(pdf_path):
-      return await interaction.response.send_message(
-          "❌ An error occurred while generating the PDF receipt.", ephemeral=True
-      )
-
-    # 6. Embed de succès éphémère avec bouton de téléchargement
-    file_to_send = discord.File(pdf_path, filename="receipt.pdf")
-
-    embed_succes = discord.Embed(
-        title="<:check:1542642100938477680> Receipt successfully created !",
-        description=(
-            "We have **finished creating** your invoice.\n\n"
-            "<:edit:1542564664192409631> **__Updated information__:**\n\n"
-            f"<:name:1542884240985948240> **Item name:**"
-            f" ```{self.item_name.value.strip()}```\n"
-            f"<:euro:1542884660105715842> **Item price:**"
-            f" ```{prix_str_formate}```\n"
-            f"<:date:1542886387358105681> **Purchase date:**"
-            f" ```{texte_date_valeur}```"
-        ),
-        color=0x0058ff,
-    )
-    embed_succes.set_footer(text="Your Footer Text Here")
-
-    class DownloadView(ui.View):
-
-      def __init__(self, file_path):
-        super().__init__(timeout=180)
-        self.file_path = file_path
-
-      @ui.button(
-          label="Download the receipt",
-          emoji="<:download:1542886821279563918>",
-          style=discord.ButtonStyle.secondary,
-      )
-      async def download_btn(
-          self, btn_interaction: discord.Interaction, button: ui.Button
-      ):
-        await btn_interaction.response.send_message(
-            "📥 Here is your PDF receipt file:",
-            file=discord.File(self.file_path),
-            ephemeral=True,
+      user_id = interaction.user.id
+      coins = charger_coins(user_id)
+      if coins <= 0:
+        embed_err = discord.Embed(
+            description=(
+                "❌ You **don't have enough coins** in your account to generate a"
+                " receipt. Please open a ticket to order some!"
+            ),
+            color=discord.Color.red(),
         )
+        return await interaction.followup.send(embed=embed_err, ephemeral=True)
 
-    view = DownloadView(pdf_path)
-    await interaction.response.send_message(
-        embed=embed_succes, view=view, file=file_to_send, ephemeral=True
-    )
+      embed_loading = discord.Embed(
+          title="⌛ **Generating receipt...**",
+          description=(
+              "Please **wait a moment** while we **process your request** and"
+              " **generate** your PDF receipt."
+          ),
+          color=0x0058ff,
+      )
+      embed_loading.set_footer(text="Your Footer Text Here")
+      loading_message = await interaction.followup.send(
+          embed=embed_loading, ephemeral=True
+      )
+
+      try:
+        raw_price = self.item_price.value.strip().replace(",", ".")
+        prix_float = float(raw_price)
+        prix_str_formate = f"{prix_float:.2f} €".replace(".", ",")
+      except ValueError:
+        embed_bad_price = discord.Embed(
+            description=(
+                "❌ **Invalid price format.** Please enter a valid number (e.g.,"
+                " `5.99` or `1`)."
+            ),
+            color=discord.Color.red(),
+        )
+        return await loading_message.edit(embed=embed_bad_price)
+
+      date_str_brute = self.purchase_date.value.strip()
+      try:
+        dt_obj = datetime.strptime(date_str_brute, "%d/%m/%Y %H:%M:%S")
+      except ValueError:
+        embed_bad_date = discord.Embed(
+            description=(
+                "❌ **Invalid date format.** Please use: `JJ/MM/AAAA HH:MM:SS`"
+                " (e.g., `24/08/2026 19:35:15`)."
+            ),
+            color=discord.Color.red(),
+        )
+        return await loading_message.edit(embed=embed_bad_date)
+
+      texte_date_valeur = dt_obj.strftime("%d/%m/%Y %H:%M:%S")
+      jour_clean = str(dt_obj.day)
+      mois_txt = MOIS_FR[dt_obj.month]
+      annee_txt = dt_obj.year
+      texte_date_val = f"{jour_clean} {mois_txt} {annee_txt}"
+      texte_heure_val = dt_obj.strftime("%H:%M:%S")
+
+      mm = dt_obj.strftime("%m")
+      dd = dt_obj.strftime("%d")
+      yyyy = dt_obj.strftime("%Y")
+      texte_code_besoin = f"149-64863689-{mm}-{dd}-{yyyy} "
+
+      tva_float = prix_float * 0.20
+      tva_str_formate = f"{tva_float:.2f} €".replace(".", ",")
+
+      deduire_coin(user_id)
+
+      pdf_path = generer_ticket_pdf(
+          nom_article=self.item_name.value.strip(),
+          prix_article_str=prix_str_formate,
+          date_valeur=texte_date_valeur,
+          date_lettre=texte_date_val,
+          heure_valeur=texte_heure_val,
+          code_avis=texte_code_besoin,
+          tva_str=tva_str_formate,
+      )
+
+      if not pdf_path or not os.path.exists(pdf_path):
+        embed_gen_err = discord.Embed(
+            description="❌ An error occurred while generating the PDF receipt.",
+            color=discord.Color.red(),
+        )
+        return await loading_message.edit(embed=embed_gen_err)
+
+      file_to_send = discord.File(pdf_path, filename="receipt.pdf")
+
+      embed_succes = discord.Embed(
+          title="<:check:1542642100938477680> Receipt successfully created !",
+          description=(
+              "We have **finished creating** your invoice.\n\n"
+              "<:edit:1542564664192409631> **__Updated information__:**\n\n"
+              f"<:name:1542884240985948240> **Item name:**"
+              f" ```{self.item_name.value.strip()}```\n"
+              f"<:euro:1542884660105715842> **Item price:**"
+              f" ```{prix_str_formate}```\n"
+              f"<:date:1542886387358105681> **Purchase date:**"
+              f" ```{texte_date_valeur}```"
+          ),
+          color=0x0058ff,
+      )
+      embed_succes.set_footer(text="Your Footer Text Here")
+
+      class DownloadView(ui.View):
+
+        def __init__(self, file_path):
+          super().__init__(timeout=180)
+          self.file_path = file_path
+
+        @ui.button(
+            label="Download the receipt",
+            emoji="<:download:1542886821279563918>",
+            style=discord.ButtonStyle.secondary,
+        )
+        async def download_btn(
+            self, btn_interaction: discord.Interaction, button: ui.Button
+        ):
+          await btn_interaction.response.send_message(
+              "📥 Here is your PDF receipt file:",
+              file=discord.File(self.file_path),
+              ephemeral=True,
+          )
+
+      view = DownloadView(pdf_path)
+      await loading_message.edit(
+          embed=embed_succes, view=view, attachments=[file_to_send]
+      )
+
+    except Exception as e:
+      print(f"Erreur dans le modal : {e}")
 
 
-# --- VUE POUR LE SALON PUBLIC ---
 class PersistentReceiptView(ui.View):
 
   def __init__(self):
