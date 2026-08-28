@@ -165,10 +165,13 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
 
         self.next_button_view.total_str = new_total_str
 
+        # MISE À JOUR DIRECTE DU DICTIONNAIRE GLOBAL IPN
+        if self.next_button_view.payment_desc in PENDING_INVOICES:
+            PENDING_INVOICES[self.next_button_view.payment_desc]["total"] = float(discounted_total)
+
         # Mise à jour de l'embed principal de la facture
         embed = interaction.message.embeds[0]
         
-        # On met à jour le champ contenant le total pour y inclure la réduction
         for i, field in enumerate(embed.fields):
             if "The **total price** of your **order** is :" in field.value:
                 updated_value = (
