@@ -67,7 +67,7 @@ class RemoveCoin(commands.Cog):
                 f" __**Removed coins**__ : `{number}`\n\n<:wallet:1542297543063507034>"
                 f" __**New user personal balance**__ : `{nouveau_total} coins`"
             ),
-            color=discord.Color.from_str("#ff0000"),
+            color=discord.Color.from_str("#0058ff"),
         )
         if bot_avatar:
             embed_succes.set_footer(text=footer_text, icon_url=bot_avatar)
@@ -85,7 +85,7 @@ class RemoveCoin(commands.Cog):
                     f" `{number}`\n\n<:wallet:1542297543063507034>"
                     f" __**New personal balance**__ : `{nouveau_total} coins`"
                 ),
-                color=discord.Color.from_str("#ff0000"),
+                color=discord.Color.from_str("#0058ff"),
             )
             if bot_avatar:
                 embed_dm.set_footer(text=footer_text, icon_url=bot_avatar)
