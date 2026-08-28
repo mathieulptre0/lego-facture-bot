@@ -11,8 +11,22 @@ from aiohttp import web
 # Rôles autorisés pour la commande /invoice
 ALLOWED_ROLE_ID = 1542206470970671214
 
+# Chemin sécurisé pour stocker les coupons dans le dossier bot discord
+DB_FILE = os.path.join(os.path.dirname(__file__), "coupons_db.json")
+
 # Dictionnaire global pour stocker les factures en attente de paiement
 PENDING_INVOICES = {}
+
+
+def load_database():
+    """Loads the coupon database."""
+    if not os.path.exists(DB_FILE):
+        return {}
+    with open(DB_FILE, "r", encoding="utf-8") as f:
+        try:
+            return json.load(f)
+        except json.JSONDecodeError:
+            return {}
 
 
 class AddProductModal(discord.ui.Modal, title="Add a product"):
@@ -86,6 +100,104 @@ class EditProductModal(discord.ui.Modal, title="Edit a product"):
             "quantity": self.quantity.value,
         }
         await self.view_instance.update_message(interaction)
+
+
+class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
+    coupon_code = discord.ui.TextInput(
+        label="Discount code",
+        style=discord.TextStyle.paragraph,
+        placeholder="Enter your discount code here...",
+        required=True,
+        max_length=100,
+    )
+
+    def __init__(self, next_button_view):
+        super().__init__()
+        self.next_button_view = next_button_view
+
+    async def on_submit(self, interaction: discord.Interaction):
+        code_entered = self.coupon_code.value.strip()
+        user_id = self.next_button_view.parent_view.target_user.id
+        db = load_database()
+        str_user_id = str(user_id)
+
+        # Vérification si l'utilisateur a des coupons enregistrés
+        user_coupons = db.get(str_user_id, [])
+        matched_coupon = None
+
+        for coupon in user_coupons:
+            if coupon.get("code") == code_entered:
+                matched_coupon = coupon
+                break
+
+        # Si le code n'existe pas ou n'appartient pas à l'utilisateur
+        if not matched_coupon:
+            error_embed = discord.Embed(
+                title="**<:info:1542297839026053190> Invalid coupon**",
+                description=(
+                    "The **discount code** you entered is **invalid** or does **not belong** to your **Discord account**."
+                ),
+                color=discord.Color.from_str("#ff0000"),
+            )
+            if self.next_button_view.parent_view.bot_avatar:
+                error_embed.set_footer(
+                    text=self.next_button_view.parent_view.footer_text,
+                    icon_url=self.next_button_view.parent_view.bot_avatar,
+                )
+            else:
+                error_embed.set_footer(text=self.next_button_view.parent_view.footer_text)
+            return await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+        # Code valide : récupération du pourcentage
+        percentage = matched_coupon.get("Percentage", 0)
+        self.next_button_view.applied_discount = percentage
+
+        # Calcul du nouveau total avec réduction
+        raw_total = self.next_button_view.base_total
+        discounted_total = raw_total * (1 - (percentage / 100.0))
+        if discounted_total < 0:
+            discounted_total = 0.0
+
+        if discounted_total.is_integer():
+            new_total_str = str(int(discounted_total))
+        else:
+            new_total_str = f"{discounted_total:.2f}".rstrip("0").rstrip(".")
+
+        self.next_button_view.total_str = new_total_str
+
+        # Mise à jour de l'embed principal de la facture
+        embed = interaction.message.embeds[0]
+        
+        # On met à jour le champ contenant le total pour y inclure la réduction
+        for i, field in enumerate(embed.fields):
+            if "The **total price** of your **order** is :" in field.value:
+                updated_value = (
+                    f"<:discount:1542297290411081778> **__Discount applied__ :**\n\n"
+                    f"```-{percentage}%```\n\n"
+                    f"The **total price** of your **order** is :\n\n"
+                    f"```{new_total_str} €```\n\n"
+                    f"<:info:1542297839026053190> Please **check carefully** "
+                    "for any **errors**; if you find a **mistake**, please let "
+                    "us know so we can **issue a new one**."
+                )
+                embed.set_field_at(i, name=field.name, value=updated_value, inline=field.inline)
+                break
+
+        await interaction.response.edit_message(embed=embed, view=self.next_button_view)
+        
+        success_embed = discord.Embed(
+            title="**<:discount:1542297290411081778> Coupon applied successfully**",
+            description=f"Your **discount coupon** of **{percentage}%** has been successfully applied to this invoice!",
+            color=discord.Color.from_str("#0058ff"),
+        )
+        if self.next_button_view.parent_view.bot_avatar:
+            success_embed.set_footer(
+                text=self.next_button_view.parent_view.footer_text,
+                icon_url=self.next_button_view.parent_view.bot_avatar,
+            )
+        else:
+            success_embed.set_footer(text=self.next_button_view.parent_view.footer_text)
+        await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 
 class InvoiceSelectMenu(discord.ui.Select):
@@ -432,6 +544,17 @@ class InvoiceView(discord.ui.View):
                 self.parent_view = parent_view
                 self.total_str = total_str
                 self.payment_desc = payment_desc
+                self.base_total = float(total_str.replace(",", "."))
+                self.applied_discount = 0
+
+            @discord.ui.button(
+                label="Discount",
+                style=discord.ButtonStyle.secondary,
+                emoji="<:discount:1542297290411081778>",
+            )
+            async def discount_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
+                modal = DiscountModal(self)
+                await interaction.response.send_modal(modal)
 
             @discord.ui.button(
                 label="Next",
