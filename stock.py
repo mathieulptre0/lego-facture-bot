@@ -53,27 +53,39 @@ class StockProductModal(discord.ui.Modal):
         self.view_instance.rebuild_items()
         await self.view_instance.update_panel(interaction)
 
-class StockItemButton(discord.ui.Button):
-    def __init__(self, product_data, index, mode, view_instance):
-        self.product_data = product_data
-        self.index = index
-        self.mode = mode
+class StockProductSelect(discord.ui.Select):
+    def __init__(self, view_instance, mode):
         self.view_instance = view_instance
+        self.mode = mode
+        options = []
         
-        super().__init__(
-            label=f"{product_data['name']}\nPrice: {product_data['price']} € | Qty: {product_data['qty']}",
-            style=discord.ButtonStyle.secondary,
-            emoji="<:arrow:1542297262544130168>",
-            row=0
-        )
+        all_products = self.view_instance.temp_products + self.view_instance.products
+        
+        for index, p in enumerate(all_products):
+            source_tag = " [Temp]" if index < len(self.view_instance.temp_products) else " [Stock]"
+            options.append(
+                discord.SelectOption(
+                    label=f"{p['name']}{source_tag}",
+                    description=f"Price: {p['price']} € | Qty: {p['qty']}",
+                    value=str(index),
+                    emoji="<:arrow:1542297262544130168>"
+                )
+            )
+
+        placeholder = "Select a product to remove..." if mode == "remove" else "Select a product to edit..."
+        super().__init__(placeholder=placeholder, min_values=1, max_values=1, options=options)
 
     async def callback(self, interaction: discord.Interaction):
+        index = int(self.values[0])
+        all_products = self.view_instance.temp_products + self.view_instance.products
+        p = all_products[index]
+
         if self.mode == "remove":
-            if self.index < len(self.view_instance.temp_products):
-                removed = self.view_instance.temp_products.pop(self.index)
+            if index < len(self.view_instance.temp_products):
+                removed = self.view_instance.temp_products.pop(index)
                 await interaction.response.send_message(f"Product `{removed['name']}` removed from temporary list.", ephemeral=True)
             else:
-                real_index = self.index - len(self.view_instance.temp_products)
+                real_index = index - len(self.view_instance.temp_products)
                 removed = self.view_instance.products.pop(real_index)
                 await self.view_instance.sync_public_stock(interaction)
                 await interaction.response.send_message(f"Product `{removed['name']}` removed from stock!", ephemeral=True)
@@ -87,10 +99,10 @@ class StockItemButton(discord.ui.Button):
                 StockProductModal(
                     self.view_instance, 
                     action_type="edit", 
-                    product_index=self.index, 
-                    current_name=self.product_data['name'], 
-                    current_price=self.product_data['price'], 
-                    current_qty=self.product_data['qty']
+                    product_index=index, 
+                    current_name=p['name'], 
+                    current_price=p['price'], 
+                    current_qty=p['qty']
                 )
             )
 
@@ -146,24 +158,8 @@ class StockSelect(discord.ui.Select):
             self.view_instance.mode = "edit"
 
         self.view_instance.rebuild_items()
-        
-        embed = discord.Embed(
-            title="Stock panel",
-            description=(
-                f"You are **currently** on the **{self.view_instance.mode} product page** ! ✨\n\n"
-                f"Click on a product below to **{self.view_instance.mode}** it."
-            ),
-            color=0x0058ff
-        )
-        embed.set_footer(
-            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
-            icon_url=interaction.client.user.display_avatar.url
-        )
-        
-        if interaction.response.is_done():
-            await interaction.message.edit(embed=embed, view=self.view_instance)
-        else:
-            await interaction.response.edit_message(embed=embed, view=self.view_instance)
+        await self.view_instance.update_panel(interaction)
+        await interaction.response.defer()
 
 class StockPanelView(discord.ui.View):
     def __init__(self, bot, stock_message_id=None):
@@ -181,35 +177,42 @@ class StockPanelView(discord.ui.View):
             self.add_item(StockSelect(self))
             self.add_item(SendButton(self))
         else:
-            all_products = self.temp_products + self.products
-            for index, p in enumerate(all_products):
-                self.add_item(StockItemButton(p, index, self.mode, self))
+            self.add_item(StockProductSelect(self, self.mode))
             self.add_item(BackToMenuButton(self))
 
     async def update_panel(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="Stock panel",
-            description=(
-                "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
-                "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
-            ),
-            color=0x0058ff
-        )
-        
-        display_products = self.temp_products if self.temp_products else self.products
-        if display_products:
-            embed.add_field(
-                name="\u200b",
-                value="<:box:1542297038283079770> **__Products__ :**",
-                inline=False
+        if self.mode == "main":
+            embed = discord.Embed(
+                title="Stock panel",
+                description=(
+                    "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
+                    "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
+                ),
+                color=0x0058ff
             )
-            names = [f"`{p['name']}`" for p in display_products]
-            prices = [f"`{p['price']} €`" for p in display_products]
-            qtys = [f"`{p['qty']}`" for p in display_products]
+            display_products = self.temp_products if self.temp_products else self.products
+            if display_products:
+                embed.add_field(
+                    name="\u200b",
+                    value="<:box:1542297038283079770> **__Products__ :**",
+                    inline=False
+                )
+                names = [f"`{p['name']}`" for p in display_products]
+                prices = [f"`{p['price']} €`" for p in display_products]
+                qtys = [f"`{p['qty']}`" for p in display_products]
 
-            embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
-            embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
-            embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+                embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
+                embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
+                embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+        else:
+            embed = discord.Embed(
+                title="Stock panel",
+                description=(
+                    f"You are **currently** on the **{self.mode} product page** ! ✨\n\n"
+                    f"Select a product from the **selection menu** below to **{self.mode}** it."
+                ),
+                color=0x0058ff
+            )
 
         embed.set_footer(
             text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
