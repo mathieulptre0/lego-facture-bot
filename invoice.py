@@ -142,6 +142,12 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         self.next_button_view.applied_discount = percentage
         self.next_button_view.applied_coupon_code = code_entered
 
+        # Suppression immédiate du coupon de la base de données dès qu'il est appliqué avec succès
+        try:
+            delete_user_coupon(target_user_id, code_entered)
+        except Exception as e:
+            print(f"[Error] Could not delete applied coupon: {e}")
+
         raw_total = self.next_button_view.base_total
         discounted_total = raw_total * (1 - (percentage / 100.0))
         if discounted_total < 0:
@@ -720,16 +726,7 @@ class InvoiceCog(commands.Cog):
         if paid_amount < expected_total:
             return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
 
-        # 1. SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ VIA LA DATABASE (CIBLÉE PAR USER_ID)
-        used_coupon_code = invoice_info.get("coupon_code")
         target_user_id = invoice_info.get("user_id")
-
-        if used_coupon_code and target_user_id:
-            try:
-                delete_user_coupon(target_user_id, used_coupon_code)
-                print(f"[IPN] Coupon {used_coupon_code} successfully removed from database for user {target_user_id}.")
-            except Exception as db_err:
-                print(f"[IPN Error] Could not delete coupon from database: {db_err}")
 
         # Nettoyage de la facture en attente
         PENDING_INVOICES.pop(payment_desc)
@@ -739,7 +736,7 @@ class InvoiceCog(commands.Cog):
             if not channel:
                 channel = await self.bot.fetch_channel(invoice_info["channel_id"])
             
-            # 2. AJOUT DU RÔLE À L'UTILISATEUR ASSOCIÉ
+            # AJOUT DU RÔLE À L'UTILISATEUR ASSOCIÉ
             if channel and channel.guild:
                 try:
                     member = channel.guild.get_member(target_user_id)
@@ -753,7 +750,7 @@ class InvoiceCog(commands.Cog):
                 except Exception as role_err:
                     print(f"[IPN Error] Could not assign role to user: {role_err}")
 
-            # 3. MISE À JOUR DE L'EMBED DISCORD
+            # MISE À JOUR DE L'EMBED DISCORD
             message = await channel.fetch_message(invoice_info["message_id"])
             
             completed_embed = discord.Embed(
