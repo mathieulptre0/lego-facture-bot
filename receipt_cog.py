@@ -179,28 +179,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
         return await loading_message.edit(embed=embed_gen_err)
 
-      # On envoie le fichier dans le salon d'archives dédié pour qu'il reste stocké et hébergé par Discord de façon permanente
-      salon_archives = interaction.client.get_channel(SALON_ARCHIVE_TICKETS_ID)
-      if not salon_archives:
-        embed_err_salon = discord.Embed(
-            description=(
-                "❌ Erreur : Le salon d'archives des tickets est introuvable."
-            ),
-            color=discord.Color.red(),
-        )
-        return await loading_message.edit(embed=embed_err_salon)
-
-      archive_msg = await salon_archives.send(
-          content=(
-              f"📄 Ticket de caisse généré pour **{interaction.user}** (`{user_id}`)"
-              f" — Article : **{self.item_name.value.strip()}**"
-          ),
-          file=discord.File(pdf_path, filename="receipt.pdf"),
-      )
-      attachment_url = (
-          archive_msg.attachments[0].url if archive_msg.attachments else None
-      )
-
+      # Construction de l'embed de succès partagé
       embed_succes = discord.Embed(
           title="<:check:1542642100938477680> Receipt successfully created !",
           description=(
@@ -217,6 +196,23 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       )
       embed_succes.set_footer(text="Your Footer Text Here")
 
+      # 1. Envoi dans le salon de logs avec le fichier en premier, le texte de traçabilité et l'embed identique
+      salon_archives = interaction.client.get_channel(SALON_ARCHIVE_TICKETS_ID)
+      attachment_url = None
+      if salon_archives:
+        file_archive = discord.File(pdf_path, filename="receipt.pdf")
+        archive_msg = await salon_archives.send(
+            content=(
+                f"📄 Ticket généré par {interaction.user.mention}"
+                f" (`{interaction.user.id}`)"
+            ),
+            file=file_archive,
+            embed=embed_succes,
+        )
+        if archive_msg.attachments:
+          attachment_url = archive_msg.attachments[0].url
+
+      # 2. Affichage à l'utilisateur avec le bouton de téléchargement direct fonctionnel
       if attachment_url:
 
         class DownloadLinkView(ui.View):

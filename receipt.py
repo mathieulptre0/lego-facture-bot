@@ -251,7 +251,7 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.3)
 
-  # 12. --- Insertion du montant Total dynamique ---
+  # 12. --- Insertion du montant Total dynamique (corrigé avec prix_article_str) ---
   right_pt_1e = 72.6 / 25.4 * 72
   top_pt_1e = 81.4 / 25.4 * 72
   page.insert_font(
@@ -1033,3 +1033,4 @@ def generer_ticket_pdf(
   doc.close()
 
   return pdf_path
+```[cite: 4]
