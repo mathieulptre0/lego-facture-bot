@@ -29,6 +29,12 @@ def load_database():
             return {}
 
 
+def save_database(data):
+    """Saves the coupon database."""
+    with open(DB_FILE, "w", encoding="utf-8") as f:
+        json.dump(data, f, indent=4, ensure_ascii=False)
+
+
 class AddProductModal(discord.ui.Modal, title="Add a product"):
     product_name = discord.ui.TextInput(
         label="Product name",
@@ -121,7 +127,6 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         db = load_database()
         str_user_id = str(user_id)
 
-        # Vérification si l'utilisateur a des coupons enregistrés
         user_coupons = db.get(str_user_id, [])
         matched_coupon = None
 
@@ -130,7 +135,6 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
                 matched_coupon = coupon
                 break
 
-        # Si le code n'existe pas ou n'appartient pas à l'utilisateur
         if not matched_coupon:
             error_embed = discord.Embed(
                 title="**<:info:1542297839026053190> Invalid coupon**",
@@ -148,11 +152,10 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
                 error_embed.set_footer(text=self.next_button_view.parent_view.footer_text)
             return await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-        # Code valide : récupération du pourcentage
         percentage = matched_coupon.get("Percentage", 0)
         self.next_button_view.applied_discount = percentage
+        self.next_button_view.applied_coupon_code = code_entered  # On mémorise le code utilisé
 
-        # Calcul du nouveau total avec réduction
         raw_total = self.next_button_view.base_total
         discounted_total = raw_total * (1 - (percentage / 100.0))
         if discounted_total < 0:
@@ -165,11 +168,12 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
 
         self.next_button_view.total_str = new_total_str
 
-        # MISE À JOUR DIRECTE DU DICTIONNAIRE GLOBAL IPN
+        # Mise à jour directe du dictionnaire global IPN (incluant le code promo utilisé)
         if self.next_button_view.payment_desc in PENDING_INVOICES:
             PENDING_INVOICES[self.next_button_view.payment_desc]["total"] = float(discounted_total)
+            PENDING_INVOICES[self.next_button_view.payment_desc]["coupon_code"] = code_entered
+            PENDING_INVOICES[self.next_button_view.payment_desc]["user_id"] = user_id
 
-        # Mise à jour de l'embed principal de la facture
         embed = interaction.message.embeds[0]
         
         for i, field in enumerate(embed.fields):
@@ -549,6 +553,7 @@ class InvoiceView(discord.ui.View):
                 self.payment_desc = payment_desc
                 self.base_total = float(total_str.replace(",", "."))
                 self.applied_discount = 0
+                self.applied_coupon_code = None
 
             @discord.ui.button(
                 label="Discount",
@@ -618,6 +623,7 @@ class InvoiceView(discord.ui.View):
             "total": float(total_str.replace(",", ".")),
             "footer_text": self.footer_text,
             "bot_avatar": self.bot_avatar,
+            "coupon_code": None,  # Sera mis à jour si un coupon est appliqué
         }
 
         await interaction.response.edit_message(
@@ -707,7 +713,6 @@ class InvoiceCog(commands.Cog):
             except Exception:
                 data = {}
 
-        # Récupération sécurisée de la référence de facture
         payment_desc = (
             data.get("description") 
             or data.get("custom") 
@@ -721,7 +726,6 @@ class InvoiceCog(commands.Cog):
         invoice_info = PENDING_INVOICES[payment_desc]
         expected_total = invoice_info["total"]
 
-        # Vérification du montant payé
         raw_gross = data.get("mc_gross") or data.get("payment_gross") or "0"
         try:
             paid_amount = float(str(raw_gross).replace(",", "."))
@@ -730,6 +734,22 @@ class InvoiceCog(commands.Cog):
 
         if paid_amount < expected_total:
             return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
+
+        # SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ DANS LE FICHIER JSON
+        used_coupon_code = invoice_info.get("coupon_code")
+        target_user_id = invoice_info.get("user_id")
+
+        if used_coupon_code and target_user_id:
+            db = load_database()
+            str_user_id = str(target_user_id)
+            if str_user_id in db:
+                # On filtre la liste pour retirer le coupon utilisé
+                original_count = len(db[str_user_id])
+                db[str_user_id] = [c for c in db[str_user_id] if c.get("code") != used_coupon_code]
+                
+                # Si la liste est vide pour cet utilisateur, on nettoie sa clé ou on sauvegarde
+                save_database(db)
+                print(f"[IPN] Coupon {used_coupon_code} successfully removed from database for user {str_user_id}.")
 
         # Nettoyage de la facture en attente
         PENDING_INVOICES.pop(payment_desc)
