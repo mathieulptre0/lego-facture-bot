@@ -317,7 +317,7 @@ class ReceiptCog(commands.Cog):
             "<:coin:1542297155660812348> **Cost to create a receipt :**\n"
             "Generating a receipt will **deduct 1 coin** from your **personal"
             " balance**. If you **don't have any coins** in your account, you"
-            " can **open a ticket** at <#{SALON_TICKET_SUPPORT_ID}> to **order"
+            f" can **open a ticket** at <#{SALON_TICKET_SUPPORT_ID}> to **order"
             " some**!\n\n"
             "<:info:1542297839026053190> Unfortunately, only the **French"
             " version** is currently available; our team will **soon** be making"
