@@ -43,7 +43,13 @@ def charger_coins(user_id: int) -> int:
   try:
     with open(COINS_DB_PATH, "r", encoding="utf-8") as f:
       data = json.load(f)
-      return data.get(str(user_id), 0)
+      if not isinstance(data, dict):
+        return 0
+      val = data.get(str(user_id), 0)
+      # Sécurité au cas où la valeur dans le JSON serait un dict au lieu d'un int
+      if isinstance(val, dict):
+        return val.get("coins", 0)
+      return int(val)
   except Exception:
     return 0
 
@@ -54,11 +60,21 @@ def deduire_coin(user_id: int):
     try:
       with open(COINS_DB_PATH, "r", encoding="utf-8") as f:
         data = json.load(f)
+        if not isinstance(data, dict):
+          data = {}
     except Exception:
-      pass
+      data = {}
+  
   current = data.get(str(user_id), 0)
+  if isinstance(current, dict):
+    current = current.get("coins", 0)
+  
+  current = int(current)
   if current > 0:
     data[str(user_id)] = current - 1
+  else:
+    data[str(user_id)] = 0
+
   with open(COINS_DB_PATH, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=4)
 
@@ -84,7 +100,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
 
   async def on_submit(self, interaction: discord.Interaction):
-    # On commence par différer pour prendre le temps de tout traiter
     await interaction.response.defer(ephemeral=True)
 
     try:
@@ -101,7 +116,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         await interaction.followup.send(embed=embed_err, ephemeral=True)
         return
 
-      # Envoi de l'embed d'attente
       embed_loading = discord.Embed(
           title="⌛ **Generating receipt...**",
           description=(
@@ -160,7 +174,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
 
       deduire_coin(user_id)
 
-      # Génération du PDF
       pdf_path = generer_ticket_pdf(
           nom_article=self.item_name.value.strip(),
           prix_article_str=prix_str_formate,
