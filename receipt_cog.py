@@ -84,7 +84,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
   purchase_date = ui.TextInput(
       label="Date of purchase / time",
-      placeholder="JJ/MM/AAAA HH:MM:SS (ex: 24/08/2026 19:35:15)",
+      placeholder="DD/MM/YYYY HH:MM:SS (ex: 24/08/2026 19:35:15)",
       style=discord.TextStyle.short,
       required=True,
   )
@@ -149,7 +149,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       except ValueError:
         embed_bad_date = discord.Embed(
             description=(
-                "❌ **Invalid date format.** Please use: `JJ/MM/AAAA HH:MM:SS`"
+                "❌ **Invalid date format.** Please use: `DD/MM/YYYY HH:MM:SS`"
                 " (e.g., `24/08/2026 19:35:15`)."
             ),
             color=discord.Color.red(),
