@@ -84,7 +84,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
 
   async def on_submit(self, interaction: discord.Interaction):
-    # 1. Différer la réponse pour éviter l'expiration du Modal (limite de 3 secondes)
+    # 1. On diffère la réponse pour éviter l'expiration du modal de Discord (limite des 3 secondes)
     await interaction.response.defer(ephemeral=True)
 
     user_id = interaction.user.id
@@ -99,15 +99,16 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       )
       return await interaction.followup.send(embed=embed_err, ephemeral=True)
 
-    # 2. Envoyer un embed d'attente en anglais
+    # 2. Affichage immédiat de l'embed d'attente en bleu (#0058ff) avec les mots importants en gras
     embed_loading = discord.Embed(
-        title="⌛ Generating your receipt...",
+        title="⌛ **Generating receipt...**",
         description=(
-            "Please wait a moment while we process your request and generate"
-            " your PDF receipt."
+            "Please **wait a moment** while we **process your request** and"
+            " **generate** your PDF receipt."
         ),
-        color=0xF1C40F,  # Jaune/Orange de chargement
+        color=0x0058ff,
     )
+    embed_loading.set_footer(text="Your Footer Text Here")
     loading_message = await interaction.followup.send(
         embed=embed_loading, ephemeral=True
     )
@@ -154,6 +155,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
 
     deduire_coin(user_id)
 
+    # 3. Génération du ticket PDF en arrière-plan
     pdf_path = generer_ticket_pdf(
         nom_article=self.item_name.value.strip(),
         prix_article_str=prix_str_formate,
@@ -171,6 +173,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       )
       return await loading_message.edit(embed=embed_gen_err)
 
+    # 4. Préparation du résultat final avec le design demandé
     file_to_send = discord.File(pdf_path, filename="receipt.pdf")
     embed_succes = discord.Embed(
         title="<:check:1542642100938477680> Receipt successfully created !",
@@ -209,7 +212,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
 
     view = DownloadView(pdf_path)
-    # Édition du message d'attente pour afficher le résultat final et le fichier
+    # 5. Modification de l'embed d'attente pour afficher le résultat final et joindre le fichier
     await loading_message.edit(
         embed=embed_succes, view=view, attachments=[file_to_send]
     )
