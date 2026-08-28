@@ -84,9 +84,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
 
   async def on_submit(self, interaction: discord.Interaction):
-    # 1. On diffère la réponse pour valider le modal instantanément
-    await interaction.response.defer(ephemeral=True)
-
     user_id = interaction.user.id
     coins = charger_coins(user_id)
     if coins <= 0:
@@ -97,10 +94,11 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      await interaction.followup.send(embed=embed_err, ephemeral=True)
-      return
+      return await interaction.response.send_message(
+          embed=embed_err, ephemeral=True
+      )
 
-    # 2. Envoi de l'embed d'attente bleu
+    # 1. Envoi direct de l'embed d'attente pour répondre au modal
     embed_loading = discord.Embed(
         title="⌛ **Generating receipt...**",
         description=(
@@ -110,9 +108,11 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         color=0x0058ff,
     )
     embed_loading.set_footer(text="Your Footer Text Here")
-    loading_message = await interaction.followup.send(
+    
+    await interaction.response.send_message(
         embed=embed_loading, ephemeral=True
     )
+    loading_message = await interaction.original_response()
 
     try:
       raw_price = self.item_price.value.strip().replace(",", ".")
@@ -126,8 +126,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      await loading_message.edit(embed=embed_bad_price)
-      return
+      return await loading_message.edit(embed=embed_bad_price)
 
     date_str_brute = self.purchase_date.value.strip()
     try:
@@ -140,8 +139,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      await loading_message.edit(embed=embed_bad_date)
-      return
+      return await loading_message.edit(embed=embed_bad_date)
 
     texte_date_valeur = dt_obj.strftime("%d/%m/%Y %H:%M:%S")
     jour_clean = str(dt_obj.day)
@@ -158,7 +156,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
 
     deduire_coin(user_id)
 
-    # 3. Génération du PDF
+    # 2. Génération du PDF
     pdf_path = generer_ticket_pdf(
         nom_article=self.item_name.value.strip(),
         prix_article_str=prix_str_formate,
@@ -174,10 +172,9 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           description="❌ An error occurred while generating the PDF receipt.",
           color=discord.Color.red(),
       )
-      await loading_message.edit(embed=embed_gen_err)
-      return
+      return await loading_message.edit(embed=embed_gen_err)
 
-    # 4. Affichage du succès avec le fichier et le bouton
+    # 3. Affichage du succès avec le fichier et le bouton
     file_to_send = discord.File(pdf_path, filename="receipt.pdf")
     embed_succes = discord.Embed(
         title="<:check:1542642100938477680> Receipt successfully created !",
