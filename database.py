@@ -16,12 +16,18 @@ def get_user_coins(user_id: int) -> int:
     user_data = coins_collection.find_one({"user_id": user_id})
     return user_data["coins"] if user_data else 0
 
-def update_user_coins(user_id: int, new_balance: int):
+def update_user_coins(user_id: int, amount: int) -> int:
+    # Récupère le solde actuel, ajoute le montant, et met à jour
+    user_data = coins_collection.find_one({"user_id": user_id})
+    current_coins = user_data["coins"] if user_data else 0
+    new_total = current_coins + amount
+
     coins_collection.update_one(
         {"user_id": user_id},
-        {"$set": {"coins": new_balance}},
+        {"$set": {"coins": new_total}},
         upsert=True
     )
+    return new_total
 
 # --- Fonctions pour les Coupons ---
 def save_user_coupon(user_id: int, coupon_code: str, percentage: int):

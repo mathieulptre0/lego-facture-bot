@@ -3,28 +3,14 @@ import discord
 from discord import app_commands
 from discord.ext import commands
 
-# Importation de nos fonctions MongoDB centralisées
-from database import coins_collection
+# Importation correcte depuis database.py
+from database import update_user_coins
 
 # Nouveaux rôles autorisés uniquement
 ALLOWED_ROLES = [
     1542206470970671214,
     1542219397534449877,
 ]
-
-def update_user_coins(user_id: int, amount: int):
-    # Recherche l'utilisateur dans MongoDB, s'il n'existe pas on initialise à 0
-    user_data = coins_collection.find_one({"user_id": user_id})
-    current_coins = user_data["coins"] if user_data else 0
-    new_total = current_coins + amount
-
-    # Met à jour ou insère directement dans la base de données en ligne
-    coins_collection.update_one(
-        {"user_id": user_id},
-        {"$set": {"coins": new_total}},
-        upsert=True
-    )
-    return new_total
 
 
 class AddCoin(commands.Cog):
@@ -59,7 +45,6 @@ class AddCoin(commands.Cog):
                 description=(
                     "You do not have the required **permissions** to **use**"
                     " this **command**. This **action** is **restricted** to **staff**."
-                    " allowed."
                 ),
                 color=discord.Color.from_str("#ff0000"),
             )
