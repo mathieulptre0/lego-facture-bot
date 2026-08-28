@@ -31,8 +31,17 @@ async def on_ready():
 
 async def main():
   async with client:
-    # Chargement du cog des reçus
+    # Chargement de tous tes cogs / extensions
     await client.load_extension("receipt_cog")
+    await client.load_extension("receipt")
+    await client.load_extension("addcoin")
+    await client.load_extension("removecoin")
+    await client.load_extension("discount")
+    await client.load_extension("discountlist")
+    await client.load_extension("removediscount")
+    await client.load_extension("invoice")
+    await client.load_extension("ticket")
+
     await client.start(TOKEN)
 
 
