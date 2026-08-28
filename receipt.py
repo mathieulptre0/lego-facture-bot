@@ -11,8 +11,9 @@ def generer_ticket_pdf(
     code_avis,
     tva_str,
 ):
-  # Chemins des fichiers
-  dossier = r"C:\Users\leazy\Desktop\lego facture bot"
+  # Chemin du dossier dynamique basé sur l'emplacement de ce fichier
+  dossier = os.path.dirname(os.path.abspath(__file__))
+  
   html_path = os.path.join(dossier, "page_blanche.html")
   pdf_path = os.path.join(dossier, "Receipt.pdf")
 
