@@ -111,15 +111,17 @@ class StockProductSelect(discord.ui.Select):
                 )
             )
 
-class BackToMenuButton(discord.ui.Button):
+class BackToMenuSelect(discord.ui.Select):
     def __init__(self, view_instance):
         self.view_instance = view_instance
-        super().__init__(
-            label="Back to menu",
-            style=discord.ButtonStyle.secondary,
-            emoji="<:back:1542638431598022770>",
-            row=1
-        )
+        options = [
+            discord.SelectOption(
+                label="Back to menu",
+                emoji="<:back:1542638431598022770>",
+                value="back_to_menu"
+            )
+        ]
+        super().__init__(placeholder="Back to menu", min_values=1, max_values=1, options=options, row=1)
 
     async def callback(self, interaction: discord.Interaction):
         self.view_instance.mode = "main"
@@ -184,7 +186,7 @@ class StockPanelView(discord.ui.View):
             self.add_item(SendButton(self))
         else:
             self.add_item(StockProductSelect(self, self.mode))
-            self.add_item(BackToMenuButton(self))
+            self.add_item(BackToMenuSelect(self))
             self.add_item(SendButton(self))
 
     async def update_panel(self, interaction: discord.Interaction):
@@ -276,7 +278,7 @@ class SendButton(discord.ui.Button):
             label="Send",
             style=discord.ButtonStyle.secondary,
             emoji="<:check:1542297188498153513>",
-            row=1
+            row=2
         )
 
     async def callback(self, interaction: discord.Interaction):
