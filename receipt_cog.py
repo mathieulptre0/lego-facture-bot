@@ -72,13 +72,13 @@ def deduire_coin(user_id: int):
 class ReceiptModal(ui.Modal, title="Receipt Creation"):
   item_name = ui.TextInput(
       label="Item name",
-      placeholder="Nom de l'article...",
+      placeholder="ex: Lamborghini Sián FKP 37",
       style=discord.TextStyle.short,
       required=True,
   )
   item_price = ui.TextInput(
       label="Item price",
-      placeholder="Ex: 5.99 ou 1",
+      placeholder="Ex: 5.99 or 1",
       style=discord.TextStyle.short,
       required=True,
   )
