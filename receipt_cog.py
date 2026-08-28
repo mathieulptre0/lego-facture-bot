@@ -1,17 +1,17 @@
 from datetime import datetime
-import json
 import os
 subprocess = __import__("subprocess")
 import discord
 from discord import app_commands, ui
 from discord.ext import commands
 from receipt import generer_ticket_pdf
+# Import des fonctions de ta base de données MongoDB
+from database import get_user_coins, update_user_coins
 
 ROLE_AUTORISE_ID = 1542206470970671214
 SALON_ENVOI_ID = 1542876927201644595
 SALON_TICKET_SUPPORT_ID = 1542238377837989888
 SALON_ARCHIVE_TICKETS_ID = 1542954377718009886
-COINS_DB_PATH = "coins_db.json"
 
 MOIS_FR = {
     1: "janvier",
@@ -27,60 +27,6 @@ MOIS_FR = {
     11: "novembre",
     12: "décembre",
 }
-
-
-def charger_coins(user_id: int) -> int:
-  if not os.path.exists(COINS_DB_PATH):
-    return 0
-  try:
-    with open(COINS_DB_PATH, "r", encoding="utf-8") as f:
-      data = json.load(f)
-      if not isinstance(data, dict):
-        return 0
-      val = data.get(str(user_id), 0)
-      if isinstance(val, dict):
-        return val.get("coins", 0)
-      return int(val)
-  except Exception:
-    return 0
-
-
-def deduire_coin(user_id: int):
-  data = {}
-  if os.path.exists(COINS_DB_PATH):
-    try:
-      with open(COINS_DB_PATH, "r", encoding="utf-8") as f:
-        data = json.load(f)
-        if not isinstance(data, dict):
-          data = {}
-    except Exception:
-      data = {}
-
-  str_user_id = str(user_id)
-  if str_user_id not in data:
-    data[str_user_id] = {"coins": 0}
-
-  if not isinstance(data[str_user_id], dict):
-    data[str_user_id] = {"coins": int(data[str_user_id])}
-
-  current = data[str_user_id].get("coins", 0)
-  if current > 0:
-    data[str_user_id]["coins"] = current - 1
-  else:
-    data[str_user_id]["coins"] = 0
-
-  with open(COINS_DB_PATH, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=4, ensure_ascii=False)
-
-  # Sauvegarde persistante pour éviter la perte sur les hébergeurs cloud éphémères
-  try:
-    subprocess.run(["git", "config", "--global", "user.name", "Bot Coins"], check=False)
-    subprocess.run(["git", "config", "--global", "user.email", "bot@local.com"], check=False)
-    subprocess.run(["git", "add", COINS_DB_PATH], check=False)
-    subprocess.run(["git", "commit", "-m", "Auto-save coins deduction"], check=False)
-    subprocess.run(["git", "push"], check=False)
-  except Exception as e:
-    print(f"Erreur lors de la synchronisation Git automatique : {e}")
 
 
 class ReceiptModal(ui.Modal, title="Receipt Creation"):
@@ -114,7 +60,8 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
 
     try:
       user_id = interaction.user.id
-      coins = charger_coins(user_id)
+      # Utilisation directe de MongoDB pour récupérer les coins
+      coins = get_user_coins(user_id)
       if coins <= 0:
         embed_err = discord.Embed(
             description=(
@@ -184,7 +131,8 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       tva_float = prix_float * 0.20
       tva_str_formate = f"{tva_float:.2f} €".replace(".", ",")
 
-      deduire_coin(user_id)
+      # Déduit 1 coin via MongoDB (-1)
+      update_user_coins(user_id, -1)
 
       pdf_path = generer_ticket_pdf(
           nom_article=self.item_name.value.strip(),
