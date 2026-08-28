@@ -92,6 +92,13 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   async def on_submit(self, interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
 
+    # Récupération sécurisée du bot pour le footer
+    bot_user = interaction.client.user
+    bot_name = bot_user.name if bot_user else "Receipt Tool"
+    bot_avatar = bot_user.display_avatar.url if bot_user else None
+    now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+    footer_text = f"{bot_name} | {now_str}"
+
     try:
       user_id = interaction.user.id
       coins = charger_coins(user_id)
@@ -113,7 +120,11 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=0x0058ff,
       )
-      embed_loading.set_footer(text="Your Footer Text Here")
+      if bot_avatar:
+        embed_loading.set_footer(text=footer_text, icon_url=bot_avatar)
+      else:
+        embed_loading.set_footer(text=footer_text)
+
       loading_message = await interaction.followup.send(
           embed=embed_loading, ephemeral=True
       )
@@ -194,9 +205,12 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=0x0058ff,
       )
-      embed_succes.set_footer(text="Your Footer Text Here")
+      if bot_avatar:
+        embed_succes.set_footer(text=footer_text, icon_url=bot_avatar)
+      else:
+        embed_succes.set_footer(text=footer_text)
 
-      # 1. Envoi dans le salon de logs avec le fichier en premier, le texte de traçabilité et l'embed identique
+      # 1. Envoi dans le salon de logs avec le fichier en premier
       salon_archives = interaction.client.get_channel(SALON_ARCHIVE_TICKETS_ID)
       attachment_url = None
       if salon_archives:
@@ -212,7 +226,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         if archive_msg.attachments:
           attachment_url = archive_msg.attachments[0].url
 
-      # 2. Affichage à l'utilisateur avec le bouton de téléchargement direct fonctionnel
+      # 2. Affichage à l'utilisateur avec le bouton de téléchargement direct
       if attachment_url:
 
         class DownloadLinkView(ui.View):
@@ -285,6 +299,13 @@ class ReceiptCog(commands.Cog):
           ephemeral=True,
       )
 
+    # Récupération sécurisée du bot pour le footer principal
+    bot_user = self.bot.user or interaction.client.user
+    bot_name = bot_user.name if bot_user else "Receipt Tool"
+    bot_avatar = bot_user.display_avatar.url if bot_user else None
+    now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+    footer_text = f"{bot_name} | {now_str}"
+
     embed_public = discord.Embed(
         title="<:receipt:1542877245406978148> Receipt Tool",
         description=(
@@ -296,7 +317,7 @@ class ReceiptCog(commands.Cog):
             "<:coin:1542297155660812348> **Cost to create a receipt :**\n"
             "Generating a receipt will **deduct 1 coin** from your **personal"
             " balance**. If you **don't have any coins** in your account, you"
-            f" can **open a ticket** at <#{SALON_TICKET_SUPPORT_ID}> to **order"
+            " can **open a ticket** at <#{SALON_TICKET_SUPPORT_ID}> to **order"
             " some**!\n\n"
             "<:info:1542297839026053190> Unfortunately, only the **French"
             " version** is currently available; our team will **soon** be making"
@@ -304,7 +325,10 @@ class ReceiptCog(commands.Cog):
         ),
         color=0x0058ff,
     )
-    embed_public.set_footer(text="Your Footer Text Here")
+    if bot_avatar:
+      embed_public.set_footer(text=footer_text, icon_url=bot_avatar)
+    else:
+      embed_public.set_footer(text=footer_text)
 
     await salon.send(embed=embed_public, view=PersistentReceiptView())
     await interaction.response.send_message(
