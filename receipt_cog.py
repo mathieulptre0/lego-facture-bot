@@ -3,6 +3,7 @@ import json
 import os
 import discord
 from discord import app_commands, ui
+from discord.ext import commands
 from receipt import generer_ticket_pdf
 
 # Configuration des IDs demandés
