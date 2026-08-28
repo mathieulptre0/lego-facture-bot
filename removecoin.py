@@ -55,8 +55,30 @@ class RemoveCoin(commands.Cog):
             await interaction.response.send_message(embed=embed_refuse, ephemeral=True)
             return
 
-        # Mise à jour des coins (soustraction) via MongoDB dans database.py
+        if number <= 0:
+            error_embed = discord.Embed(
+                title="<:info:1542297839026053190> Error",
+                description="You must remove at least **1 coin**.",
+                color=discord.Color.from_str("#ff0000"),
+            )
+            if bot_avatar:
+                error_embed.set_footer(text=footer_text, icon_url=bot_avatar)
+            else:
+                error_embed.set_footer(text=footer_text)
+            return await interaction.response.send_message(embed=error_embed, ephemeral=True)
+
+        # Récupérer d'abord le solde actuel de l'utilisateur (si la fonction existe dans database.py, sinon on ajuste via update)
+        # On tente de récupérer le solde actuel ou on applique directement la logique sécurisée :
+        # On retire les coins, et si le nouveau total est < 0, on remet à 0 et on calcule combien ont été réellement retirés.
+        
+        # Astuce : On récupère le solde avant modification si ta bdd le permet, ou on gère via le retour de update_user_coins
         nouveau_total = update_user_coins(user.id, -number)
+        
+        removed_actual = number
+        if nouveau_total < 0:
+            # Calcul de la quantité exacte qui a pu être retirée pour atteindre 0
+            removed_actual = number + nouveau_total  # ex: 9 - 10 = -1 -> 10 + (-1) = 9 retirés
+            nouveau_total = update_user_coins(user.id, -nouveau_total) # Remet le solde exactement à 0
 
         embed_succes = discord.Embed(
             title="<:check2:1542297108638335066> Coins removal successful",
@@ -64,7 +86,7 @@ class RemoveCoin(commands.Cog):
                 "The **coins** have been **successfully removed** from the **profile** of"
                 f" the **user**.\n\n<:user:1542297519881592945>"
                 f" __**Affected user**__ : {user.mention}\n\n<:coin:1542297155660812348>"
-                f" __**Removed coins**__ : `{number}`\n\n<:wallet:1542297543063507034>"
+                f" __**Removed coins**__ : `{removed_actual}`\n\n<:wallet:1542297543063507034>"
                 f" __**New user personal balance**__ : `{nouveau_total} coins`"
             ),
             color=discord.Color.from_str("#0058ff"),
@@ -82,7 +104,7 @@ class RemoveCoin(commands.Cog):
                 description=(
                     "An **administrator** has just **removed** **coins** from your **account**"
                     f" !\n\n<:coin:1542297155660812348> __**Coins removed**__ :"
-                    f" `{number}`\n\n<:wallet:1542297543063507034>"
+                    f" `{removed_actual}`\n\n<:wallet:1542297543063507034>"
                     f" __**New personal balance**__ : `{nouveau_total} coins`"
                 ),
                 color=discord.Color.from_str("#0058ff"),
