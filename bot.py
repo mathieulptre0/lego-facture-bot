@@ -15,6 +15,9 @@ REQUIRED_ROLE_ID = 1542206470970671214
 CONFIG_CHANNEL_ID = 1542876927201644595
 TICKET_CHANNEL_ID = 1542238377837989888
 
+# Remplace par l'ID réel de ton serveur Discord pour forcer l'affichage immédiat de /receipt
+GUILD_ID = discord.Object(id=154220000000000000)
+
 
 def charger_coins():
   if not os.path.exists(COINS_DB_PATH):
@@ -203,16 +206,20 @@ class ReceiptPersistentView(discord.ui.View):
 async def on_ready():
   bot.add_view(ReceiptPersistentView())
   try:
-    # Synchronisation indispensable pour que Discord actualise les commandes slash
-    synced = await bot.tree.sync()
-    print(f"Commandes synchronisées : {len(synced)} command(s)")
+    synced = await bot.tree.sync(guild=GUILD_ID)
+    print(
+        f"Commande /receipt synchronisée avec succès sur le serveur :"
+        f" {len(synced)} command(s)"
+    )
   except Exception as e:
-    print(e)
-  print(f"Bot connecté en tantf que {bot.user}")
+    print(f"Erreur de synchronisation : {e}")
+  print(f"Bot connecté en tant que {bot.user}")
 
 
 @bot.tree.command(
-    name="receipt", description="Envoyer le panneau de génération de reçus"
+    name="receipt",
+    description="Envoyer le panneau de génération de reçus",
+    guild=GUILD_ID,
 )
 async def receipt_command(interaction: discord.Interaction):
   role = interaction.guild.get_role(REQUIRED_ROLE_ID)
@@ -260,4 +267,5 @@ async def receipt_command(interaction: discord.Interaction):
   )
 
 
+# Remplace par ton token de bot Discord
 # bot.run("TON_TOKEN_DISCORD")
