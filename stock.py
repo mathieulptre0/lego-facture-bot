@@ -125,6 +125,7 @@ class BackToMenuButton(discord.ui.Button):
         self.view_instance.mode = "main"
         self.view_instance.rebuild_items()
         await self.view_instance.update_panel(interaction)
+        await interaction.response.defer()
 
 class StockSelect(discord.ui.Select):
     def __init__(self, view_instance):
@@ -184,26 +185,20 @@ class StockPanelView(discord.ui.View):
         else:
             self.add_item(StockProductSelect(self, self.mode))
             self.add_item(BackToMenuButton(self))
+            self.add_item(SendButton(self))
 
     async def update_panel(self, interaction: discord.Interaction):
-        mode_text = "remove product" if self.mode == "remove" else "edit product" if self.mode == "edit" else ""
-        
-        if self.mode != "main":
-            description = f"You are **currently** on the **{mode_text} page** ! ✨\n\nSelect a product from the **selection menu** below to **{self.mode}** it."
-        else:
-            description = (
-                "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
-                "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
-            )
-
         embed = discord.Embed(
             title="Stock panel",
-            description=description,
+            description=(
+                "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
+                "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
+            ),
             color=0x0058ff
         )
         
         display_products = self.temp_products if self.temp_products else self.products
-        if self.mode == "main" and display_products:
+        if display_products:
             embed.add_field(
                 name="\u200b",
                 value="<:box:1542297038283079770> **__Products__ :**",
