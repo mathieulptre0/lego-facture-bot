@@ -196,30 +196,32 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       )
       embed_succes.set_footer(text="Your Footer Text Here")
 
-      class DownloadView(ui.View):
-
-        def __init__(self, file_path):
-          super().__init__(timeout=180)
-          self.file_path = file_path
-
-        @ui.button(
-            label="Download the receipt",
-            emoji="<:download:1542886821279563918>",
-            style=discord.ButtonStyle.secondary,
-        )
-        async def download_btn(
-            self, btn_interaction: discord.Interaction, button: ui.Button
-        ):
-          await btn_interaction.response.send_message(
-              "📥 Here is your PDF receipt file:",
-              file=discord.File(self.file_path),
-              ephemeral=True,
-          )
-
-      view = DownloadView(pdf_path)
-      await loading_message.edit(
-          embed=embed_succes, view=view, attachments=[file_to_send]
+      # Étape 1 : On envoie d'abord le message avec l'embed et le fichier joint pour obtenir son URL
+      sent_msg = await loading_message.edit(
+          embed=embed_succes, view=None, attachments=[file_to_send]
       )
+
+      # On récupère l'URL directe du fichier attaché sur les serveurs Discord
+      attachment_url = (
+          sent_msg.attachments[0].url if sent_msg.attachments else None
+      )
+
+      if attachment_url:
+        # Étape 2 : On crée un bouton URL cliquable qui force le téléchargement du PDF
+        class DownloadLinkView(ui.View):
+
+          def __init__(self, url: str):
+            super().__init__(timeout=180)
+            self.add_item(
+                ui.Button(
+                    label="Download the receipt",
+                    emoji="<:download:1542886821279563918>",
+                    style=discord.ButtonStyle.link,
+                    url=url,
+                )
+            )
+
+        await sent_msg.edit(view=DownloadLinkView(attachment_url))
 
     except Exception as e:
       print(f"Erreur dans le modal : {e}")
