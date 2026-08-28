@@ -995,26 +995,17 @@ class TicketDownloadView(discord.ui.View):
 
   def __init__(self, pdf_path: str):
     super().__init__(timeout=180)
-    # Ajout du bouton "Download the receipt" qui envoie directement le fichier
-    self.add_item(
-        discord.ui.Button(
-            label="Download the receipt",
-            style=discord.ButtonStyle.green,
-            emoji="📥",
-            custom_id="download_receipt_btn",
-        )
-    )
     self.pdf_path = pdf_path
 
   @discord.ui.button(
       label="Download the receipt",
       style=discord.ButtonStyle.green,
-      custom_id="download_receipt_btn_cb",
+      emoji="📥",
+      custom_id="download_receipt_btn",
   )
   async def download_button_callback(
       self, interaction: discord.Interaction, button: discord.ui.Button
   ):
-    # Envoi sécurisé du fichier PDF lorsque l'utilisateur clique sur le bouton final
     if os.path.exists(self.pdf_path):
       file = discord.File(self.pdf_path, filename="Receipt.pdf")
       await interaction.response.send_message(
@@ -1031,17 +1022,15 @@ class TicketCog(commands.Cog):
   def __init__(self, bot):
     self.bot = bot
 
-  # Exemple de fonction fictive pour récupérer les coins (à adapter selon ta bdd/json)
   def get_user_coins(self, user_id: int) -> int:
     # TODO: Remplace par ta vraie logique de lecture de la base de données
     return 5
 
-  # Exemple de fonction fictive pour débiter les coins (à adapter selon ta bdd/json)
   def remove_user_coins(self, user_id: int, amount: int):
     # TODO: Remplace par ta vraie logique de mise à jour des coins
     pass
 
-  @discord.app_command(
+  @discord.app_commands.command(
       name="generer_ticket", description="Génère ton ticket de caisse (1 coin)"
   )
   async def generer_ticket(
@@ -1057,7 +1046,6 @@ class TicketCog(commands.Cog):
   ):
     user_id = interaction.user.id
 
-    # 1. Vérification du solde de coins
     solde = self.get_user_coins(user_id)
     if solde < 1:
       await interaction.response.send_message(
@@ -1067,10 +1055,8 @@ class TicketCog(commands.Cog):
       )
       return
 
-    # 2. Débit instantané de 1 coin au moment de la validation de l'embed finale / action
     self.remove_user_coins(user_id, 1)
 
-    # 3. Génération du PDF avec tes paramètres
     pdf_path = generer_ticket_pdf(
         nom_article=nom_article,
         prix_article_str=prix,
@@ -1081,7 +1067,6 @@ class TicketCog(commands.Cog):
         tva_str=tva,
     )
 
-    # 4. Création de l'embed finale comportant le bouton de téléchargement
     embed = discord.Embed(
         title="Ticket prêt !",
         description=(
@@ -1094,7 +1079,6 @@ class TicketCog(commands.Cog):
 
     view = TicketDownloadView(pdf_path)
 
-    # Envoi de l'embed finale avec le bouton
     await interaction.response.send_message(
         embed=embed, view=view, ephemeral=True
     )
