@@ -1,5 +1,11 @@
 import os
+import discord
+from discord.ext import commands
 import pymupdf as fitz
+
+# ==========================================
+# FONCTION DE GÉNÉRATION DU PDF (receipt_4)
+# ==========================================
 
 
 def generer_ticket_pdf(
@@ -11,7 +17,6 @@ def generer_ticket_pdf(
     code_avis,
     tva_str,
 ):
-  # Chemins des fichiers (ajustés selon ton environnement)
   dossier = os.path.dirname(os.path.abspath(__file__))
   html_path = os.path.join(dossier, "page_blanche.html")
   pdf_path = os.path.join(dossier, "Receipt_generated.pdf")
@@ -25,15 +30,12 @@ def generer_ticket_pdf(
   image_width60_path = os.path.join(dossier, "width60.png")
   image_width99_path = os.path.join(dossier, "width99.png")
 
-  # 1. --- Conversion HTML vers PDF ---
   width_mm = 80
   height_mm = 385.8
-
   width_pt = width_mm / 25.4 * 72
   height_pt = height_mm / 25.4 * 72
   mediabox = fitz.Rect(0, 0, width_pt, height_pt)
 
-  # Si le fichier HTML n'existe pas, on crée une page vierge pour éviter un crash
   if os.path.exists(html_path):
     with open(html_path, encoding="utf-8") as f:
       html = f.read()
@@ -58,13 +60,12 @@ def generer_ticket_pdf(
   font_medium = fitz.Font(fontfile=police_medium)
   font_bold = fitz.Font(fontfile=police_bold)
 
-  # 2. --- Insertion du texte "DUPLICATA" (en haut) ---
+  # Duplicata haut
   texte_duplicata_haut = "DUPLICATA"
   taille_dh = 15
   espacement_dh = -0.394
   left_pt_dh = 24 / 25.4 * 72
   top_pt_dh = 1 / 25.4 * 72
-
   page.insert_font(fontname="CeraBoldHaut", fontfile=police_bold)
   x, y = left_pt_dh, top_pt_dh + taille_dh
   for c in texte_duplicata_haut:
@@ -77,7 +78,7 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=taille_dh) + espacement_dh
 
-  # 3. --- Insertion de l'image (width60.png) ---
+  # Image width60
   largeur_w60_pt = 19 / 25.4 * 72
   top_w60_pt = 15.3 / 25.4 * 72
   left_w60_pt = 28 / 25.4 * 72
@@ -97,7 +98,7 @@ def generer_ticket_pdf(
       filename=image_width60_path,
   )
 
-  # 4. --- Insertion du texte "149 LEGO, LQT Paris, EU-FR" ---
+  # Adresse LQT
   texte_lqt = "149 LEGO, LQT Paris, EU-FR"
   taille_lqt = 7.9
   espacement_lqt = 0.03
@@ -113,7 +114,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=taille_lqt) + espacement_lqt
 
-  # 5. --- Insertion de la deuxième ligne d'adresse ---
   texte_adr2 = "15 Parv. de la Défense,"
   x, y = 23 / 25.4 * 72, (43.2 / 25.4 * 72) + 7.9
   page.insert_font(fontname="CeraMedium2", fontfile=police_medium)
@@ -123,7 +123,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=7.9)
 
-  # 6. --- Insertion de la troisième ligne d'adresse ---
   texte_adr3 = "92092 Puteaux, FR"
   x, y = 25.5 / 25.4 * 72, (46.2 / 25.4 * 72) + 7.9
   page.insert_font(fontname="CeraMedium3", fontfile=police_medium)
@@ -133,7 +132,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=7.9)
 
-  # 6 bis. --- Insertion du texte "Transaction de vente" ---
   texte_trans = "Transaction de vente"
   x, y = 11 / 25.4 * 72, (54.5 / 25.4 * 72) + 15
   page.insert_font(fontname="CeraBoldTrans", fontfile=police_bold)
@@ -143,7 +141,7 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=15)
 
-  # 7. --- Insertion de l'article dynamique ---
+  # Article dynamique
   taille_article = 9.5
   x, y = 2 / 25.4 * 72, (66 / 25.4 * 72) + taille_article
   page.insert_font(fontname="CeraMediumArt1", fontfile=police_medium)
@@ -157,7 +155,7 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=taille_article)
 
-  # 8. --- Insertion du prix de l'article dynamique (aligné à droite) ---
+  # Prix article dynamique
   right_pt_p1 = 72.5 / 25.4 * 72
   top_pt_p1 = 66 / 25.4 * 72
   page.insert_font(fontname="CeraMediumPrix1", fontfile=police_medium)
@@ -176,7 +174,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5)
 
-  # 9. --- Insertion du texte "Récapitulatif TVA  Taux" ---
   texte_tva_taux = "Récapitulatif TVA  Taux"
   x, y = 2.2 / 25.4 * 72, (73.6 / 25.4 * 72) + 9.3
   page.insert_font(fontname="CeraMediumTVA", fontfile=police_medium)
@@ -190,7 +187,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.3)
 
-  # 9 bis. --- Insertion du texte "TVA" ---
   texte_tva_seul = "TVA"
   x, y = 66.5 / 25.4 * 72, (73.7 / 25.4 * 72) + 9.2
   page.insert_font(fontname="CeraMediumTVATexte", fontfile=police_medium)
@@ -204,7 +200,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.2)
 
-  # 10. --- Insertion du texte "20.0%" ---
   texte_20 = "20.0%"
   x, y = 30.8 / 25.4 * 72, (77.8 / 25.4 * 72) + 9.3
   page.insert_font(fontname="CeraMedium20", fontfile=police_medium)
@@ -214,7 +209,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.3)
 
-  # 10 bis. --- Insertion du montant TVA dynamique (1er affichage TVA) ---
   right_pt_1e_nouveau = 72.7 / 25.4 * 72
   top_pt_1e_nouveau = 77.6 / 25.4 * 72
   page.insert_font(
@@ -235,7 +229,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5)
 
-  # 11. --- Insertion du texte "Total" ---
   texte_tot_label = "Total"
   x, y = 30.8 / 25.4 * 72, (81.5 / 25.4 * 72) + 9.3
   page.insert_font(
@@ -251,7 +244,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.3)
 
-  # 12. --- Insertion du montant Total TVA dynamique (Corrigé pour utiliser tva_str au lieu de prix_article_str) ---
   right_pt_1e = 72.6 / 25.4 * 72
   top_pt_1e = 81.4 / 25.4 * 72
   page.insert_font(
@@ -272,7 +264,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5) - 0.02
 
-  # 13. --- Insertion du texte "Nombre d'articles : 1" ---
   texte_nb = "Nombre d'articles : 1"
   x, y = 2.2 / 25.4 * 72, (91 / 25.4 * 72) + 9.5
   page.insert_font(
@@ -288,7 +279,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5)
 
-  # 13 bis. --- Insertion du texte "Total à payer" ---
   texte_tap = "Total à payer"
   x, y = 2.1 / 25.4 * 72, (96.5 / 25.4 * 72) + 11
   page.insert_font(
@@ -304,7 +294,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=11) - 0.1
 
-  # 14. --- Insertion du prix Total à payer dynamique ---
   right_pt_tp = 73 / 25.4 * 72
   top_pt_tp = 96.5 / 25.4 * 72
   page.insert_font(
@@ -325,7 +314,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=11)
 
-  # 15. --- Insertion du texte "Payé avec Visa" ---
   texte_paye = "Payé avec Visa"
   x, y = 2.1 / 25.4 * 72, (106.5 / 25.4 * 72) + 9.5
   page.insert_font(fontname="CeraMediumVisa", fontfile=police_medium)
@@ -339,7 +327,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5)
 
-  # 16. --- Insertion du montant Visa dynamique ---
   right_pt_599e = 72.8 / 25.4 * 72
   top_pt_599e = 106.5 / 25.4 * 72
   page.insert_font(
@@ -360,7 +347,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5)
 
-  # 17. --- Insertion de l'image (avis / code) ---
   largeur_img_pt = 74 / 25.4 * 72
   left_img_pt = 0.6 / 25.4 * 72
   top_img_pt = 120.3 / 25.4 * 72
@@ -378,7 +364,6 @@ def generer_ticket_pdf(
       filename=image_avis_path,
   )
 
-  # 18. --- Insertion de l'image "width99.png" (QR Code) ---
   largeur_w99_pt = 14 / 25.4 * 72
   left_w99_pt = 23.7 / 25.4 * 72
   top_w99_pt = 124.5 / 25.4 * 72
@@ -398,7 +383,6 @@ def generer_ticket_pdf(
       filename=image_width99_path,
   )
 
-  # 19. --- Insertion du texte "Comment jugez-" ---
   texte_juger = "Comment jugez-"
   x, y = 39.8 / 25.4 * 72, (124.7 / 25.4 * 72) + 10.5
   page.insert_font(fontname="CeraBoldJuger", fontfile=police_bold)
@@ -412,7 +396,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=10.5)
 
-  # 19 bis. --- Insertion du texte "vous votre" ---
   texte_vv = "vous votre"
   x, y = 39.8 / 25.4 * 72, (129 / 25.4 * 72) + 10.4
   page.insert_font(
@@ -428,7 +411,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=10.4)
 
-  # 20. --- Insertion du texte "expérience ?" ---
   texte_exp = "expérience ?"
   x, y = 39.8 / 25.4 * 72, (133.2 / 25.4 * 72) + 10.4
   page.insert_font(
@@ -444,7 +426,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=10.4)
 
-  # 21. --- Insertion du texte "Sinon, répondez en 3 minutes à notre" ---
   texte_sinon = "Sinon, répondez en 3 minutes à notre"
   x, y = 23.6 / 25.4 * 72, (143.8 / 25.4 * 72) + 8
   page.insert_font(
@@ -460,7 +441,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=8)
 
-  # 22. --- Insertion du texte "questionnaire sur LEGO.com/" ---
   texte_quest = "questionnaire sur LEGO.com/"
   x, y = 23.6 / 25.4 * 72, (146.5 / 25.4 * 72) + 8
   page.insert_font(
@@ -476,7 +456,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=8)
 
-  # 23. --- Insertion du texte "storesurvey" ---
   texte_ss = "storesurvey"
   x, y = 23.5 / 25.4 * 72, (149.3 / 25.4 * 72) + 8
   page.insert_font(
@@ -492,7 +471,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=8)
 
-  # 24. --- Insertion du texte "Au besoin, utilisez ce code :" ---
   texte_besoin = "Au besoin, utilisez ce code :"
   x, y = 23.5 / 25.4 * 72, (154.2 / 25.4 * 72) + 8
   page.insert_font(
@@ -508,7 +486,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=8)
 
-  # 25. --- Insertion du code d'avis dynamique ---
   x, y = 23.5 / 25.4 * 72, (157 / 25.4 * 72) + 8
   page.insert_font(
       fontname="CeraMediumCodeBesoin", fontfile=police_medium
@@ -523,7 +500,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=8) + 0.25
 
-  # 26. --- Ligne de séparation ---
   s1 = page.new_shape()
   s1.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 168 / 25.4 * 72),
@@ -532,7 +508,6 @@ def generer_ticket_pdf(
   s1.finish(color=(0, 0, 0), width=1)
   s1.commit()
 
-  # 27. --- Insertion du texte "Deviens un LEGO® Insider !" ---
   texte_ins_titre = "Deviens un LEGO® Insider !"
   x, y = 14 / 25.4 * 72, (170.8 / 25.4 * 72) + 10.5
   page.insert_font(fontname="CeraBoldInsider", fontfile=police_bold)
@@ -546,7 +521,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=10.5)
 
-  # 28. --- Insiders L1 ---
   texte_ins1 = "Rejoins le programme LEGO® Insiders pour"
   x, y = 4 / 25.4 * 72, (177.2 / 25.4 * 72) + 9.7
   page.insert_font(
@@ -562,7 +536,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.7) - 0.1
 
-  # 29. --- Insiders L2 ---
   texte_ins2 = "profiter de formidables avantages et"
   x, y = 8.8 / 25.4 * 72, (180.7 / 25.4 * 72) + 9.7
   page.insert_font(
@@ -578,7 +551,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.7) - 0.1
 
-  # 30. --- Insiders L3 ---
   texte_ins3 = "récompenses LEGO®"
   x, y = 21.3 / 25.4 * 72, (184 / 25.4 * 72) + 9.7
   page.insert_font(
@@ -594,7 +566,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.7) - 0.1
 
-  # 31. --- URL Insiders ---
   texte_ins_url = "LEGO.com/insiders"
   x, y = 22.2 / 25.4 * 72, (189 / 25.4 * 72) + 9.7
   page.insert_font(
@@ -610,7 +581,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.7) - 0.24
 
-  # 32. --- Ligne de séparation ---
   s2 = page.new_shape()
   s2.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 196.2 / 25.4 * 72),
@@ -619,7 +589,6 @@ def generer_ticket_pdf(
   s2.finish(color=(0, 0, 0), width=1)
   s2.commit()
 
-  # 33. --- Titre Abonnement ---
   texte_titre = "S'abonner aux e-mails"
   x, y = 18.3 / 25.4 * 72, (198.8 / 25.4 * 72) + 10.5
   page.insert_font(fontname="CeraBoldAbonner", fontfile=police_bold)
@@ -633,7 +602,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=10.5)
 
-  # 34. --- Abonnement L1 ---
   texte_l1 = "Suivez notre actualité en vous abonnant à"
   x, y = 4.8 / 25.4 * 72, (205.5 / 25.4 * 72) + 9.5
   page.insert_font(
@@ -649,7 +617,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5) - 0.02
 
-  # 35. --- Abonnement L2 ---
   texte_l2 = "notre programme d'e-mails LEGO.com/email"
   x, y = 2.5 / 25.4 * 72, (208.8 / 25.4 * 72) + 9.5
   page.insert_font(
@@ -665,7 +632,6 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.5) - 0.05
 
-  # 36. --- Ligne de séparation ---
   s3 = page.new_shape()
   s3.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 216.2 / 25.4 * 72),
@@ -674,7 +640,6 @@ def generer_ticket_pdf(
   s3.finish(color=(0, 0, 0), width=1.3)
   s3.commit()
 
-  # 37. --- Sécurité ---
   texte_secu = "Caractéristiques de sécurité"
   x, y = 12.9 / 25.4 * 72, (218.8 / 25.4 * 72) + 10.5
   page.insert_font(fontname="CeraBoldSecurite", fontfile=police_bold)
@@ -688,7 +653,6 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=10.5)
 
-  # 38. --- Image width200.png ---
   largeur_w200_pt = 38.1 / 25.4 * 72
   left_w200_pt = 18.4 / 25.4 * 72
   top_w200_pt = 228.8 / 25.4 * 72
@@ -708,7 +672,6 @@ def generer_ticket_pdf(
       filename=image_width200_path,
   )
 
-  # 39. --- Ligne de séparation ---
   s4 = page.new_shape()
   s4.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 293 / 25.4 * 72),
@@ -717,7 +680,6 @@ def generer_ticket_pdf(
   s4.finish(color=(0, 0, 0), width=1)
   s4.commit()
 
-  # 40 à 45. --- Mentions légales & Duplicata ---
   page.insert_font(fontname="CeraBoldDuplicata", fontfile=police_bold)
   page.insert_text(
       (2 / 25.4 * 72, (268.1 / 25.4 * 72) + 7.2),
@@ -774,7 +736,6 @@ def generer_ticket_pdf(
       color=(0, 0, 0),
   )
 
-  # 46. --- Ticket CB Titre ---
   page.insert_font(fontname="CeraBoldCBTitre", fontfile=police_bold)
   page.insert_text(
       (2 / 25.4 * 72, (295.2 / 25.4 * 72) + 10.5),
@@ -784,7 +745,6 @@ def generer_ticket_pdf(
       color=(0, 0, 0),
   )
 
-  # 47 & 48. --- Date / Heure CB dynamique ---
   page.insert_font(fontname="CeraMediumCBDate", fontfile=police_medium)
   page.insert_text(
       (2 / 25.4 * 72, (300.8 / 25.4 * 72) + 9.5),
@@ -805,7 +765,6 @@ def generer_ticket_pdf(
       color=(0, 0, 0),
   )
 
-  # 49 à 58. --- Infos CB fixes (Carte, Visa, Puce, AID, Autorisation) ---
   infos_cb = [
       (
           "CeraMediumCBCarte",
@@ -871,7 +830,6 @@ def generer_ticket_pdf(
         color=(0, 0, 0),
     )
 
-  # 59. --- Ligne séparation ---
   s5 = page.new_shape()
   s5.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 324.8 / 25.4 * 72),
@@ -880,7 +838,6 @@ def generer_ticket_pdf(
   s5.finish(color=(0, 0, 0), width=1.3)
   s5.commit()
 
-  # 60. --- Image width87.png ---
   largeur_w87_pt = 13.8 / 25.4 * 72
   left_w87_pt = 59 / 25.4 * 72
   top_w87_pt = 328 / 25.4 * 72
@@ -900,7 +857,6 @@ def generer_ticket_pdf(
       filename=image_width87_path,
   )
 
-  # 61 à 66. --- Détails de la commande dynamiques ---
   page.insert_font(
       fontname="CeraBoldDetailsCommande", fontfile=police_bold
   )
@@ -959,7 +915,6 @@ def generer_ticket_pdf(
       color=(0, 0, 0),
   )
 
-  # 67. --- Ligne séparation ---
   s6 = page.new_shape()
   s6.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 345 / 25.4 * 72),
@@ -968,7 +923,6 @@ def generer_ticket_pdf(
   s6.finish(color=(0, 0, 0), width=1)
   s6.commit()
 
-  # 68 à 70. --- Garantie ---
   garanties = [
       (
           "CeraMediumGarantieL1",
@@ -999,7 +953,6 @@ def generer_ticket_pdf(
         color=(0, 0, 0),
     )
 
-  # 71. --- Ligne séparation ---
   s7 = page.new_shape()
   s7.draw_line(
       fitz.Point(2.2 / 25.4 * 72, 360.2 / 25.4 * 72),
@@ -1008,7 +961,6 @@ def generer_ticket_pdf(
   s7.finish(color=(0, 0, 0), width=1.3)
   s7.commit()
 
-  # 72 à 75. --- Infos finales Retail ---
   retails = [
       ("CeraMediumRetailL1", "LEGO Brand Retail SAS", 22.5, 365.8),
       ("CeraMediumRetailL2", "75 rue de Tocqueville,", 23.2, 368.8),
@@ -1025,7 +977,6 @@ def generer_ticket_pdf(
         color=(0, 0, 0),
     )
 
-  # Sauvegarde métadonnées et fichier
   meta = doc.metadata
   meta["title"] = "Receipt"
   doc.set_metadata(meta)
@@ -1033,3 +984,121 @@ def generer_ticket_pdf(
   doc.close()
 
   return pdf_path
+
+
+# ==========================================
+# GESTION DES COINS ET DU BOUTON DISCORD (COG)
+# ==========================================
+
+
+class TicketDownloadView(discord.ui.View):
+
+  def __init__(self, pdf_path: str):
+    super().__init__(timeout=180)
+    # Ajout du bouton "Download the receipt" qui envoie directement le fichier
+    self.add_item(
+        discord.ui.Button(
+            label="Download the receipt",
+            style=discord.ButtonStyle.green,
+            emoji="📥",
+            custom_id="download_receipt_btn",
+        )
+    )
+    self.pdf_path = pdf_path
+
+  @discord.ui.button(
+      label="Download the receipt",
+      style=discord.ButtonStyle.green,
+      custom_id="download_receipt_btn_cb",
+  )
+  async def download_button_callback(
+      self, interaction: discord.Interaction, button: discord.ui.Button
+  ):
+    # Envoi sécurisé du fichier PDF lorsque l'utilisateur clique sur le bouton final
+    if os.path.exists(self.pdf_path):
+      file = discord.File(self.pdf_path, filename="Receipt.pdf")
+      await interaction.response.send_message(
+          "Voici votre ticket de caisse généré !", file=file, ephemeral=True
+      )
+    else:
+      await interaction.response.send_message(
+          "❌ Erreur : Le fichier PDF est introuvable.", ephemeral=True
+      )
+
+
+class TicketCog(commands.Cog):
+
+  def __init__(self, bot):
+    self.bot = bot
+
+  # Exemple de fonction fictive pour récupérer les coins (à adapter selon ta bdd/json)
+  def get_user_coins(self, user_id: int) -> int:
+    # TODO: Remplace par ta vraie logique de lecture de la base de données
+    return 5
+
+  # Exemple de fonction fictive pour débiter les coins (à adapter selon ta bdd/json)
+  def remove_user_coins(self, user_id: int, amount: int):
+    # TODO: Remplace par ta vraie logique de mise à jour des coins
+    pass
+
+  @discord.app_command(
+      name="generer_ticket", description="Génère ton ticket de caisse (1 coin)"
+  )
+  async def generer_ticket(
+      self,
+      interaction: discord.Interaction,
+      nom_article: str,
+      prix: str,
+      date_valeur: str,
+      date_lettre: str,
+      heure: str,
+      code_avis: str,
+      tva: str,
+  ):
+    user_id = interaction.user.id
+
+    # 1. Vérification du solde de coins
+    solde = self.get_user_coins(user_id)
+    if solde < 1:
+      await interaction.response.send_message(
+          "❌ Vous n'avez pas assez de coins (1 coin requis) pour générer ce"
+          " ticket.",
+          ephemeral=True,
+      )
+      return
+
+    # 2. Débit instantané de 1 coin au moment de la validation de l'embed finale / action
+    self.remove_user_coins(user_id, 1)
+
+    # 3. Génération du PDF avec tes paramètres
+    pdf_path = generer_ticket_pdf(
+        nom_article=nom_article,
+        prix_article_str=prix,
+        date_valeur=date_valeur,
+        date_lettre=date_lettre,
+        heure_valeur=heure,
+        code_avis=code_avis,
+        tva_str=tva,
+    )
+
+    # 4. Création de l'embed finale comportant le bouton de téléchargement
+    embed = discord.Embed(
+        title="Ticket prêt !",
+        description=(
+            "Votre ticket a été généré avec succès.\n🪙 **1 coin** a été débité"
+            " de votre compte.\n\nCliquez sur le bouton ci-dessous pour"
+            " télécharger votre reçu."
+        ),
+        color=discord.Color.blue(),
+    )
+
+    view = TicketDownloadView(pdf_path)
+
+    # Envoi de l'embed finale avec le bouton
+    await interaction.response.send_message(
+        embed=embed, view=view, ephemeral=True
+    )
+
+
+async def setup(bot):
+  await bot.add_cog(TicketCog(bot))
