@@ -1,11 +1,12 @@
-import os
 from datetime import datetime
+import os
 import discord
+from discord import app_commands
 from discord.ext import commands
 import pymupdf as fitz
 
 # ==========================================
-# FONCTION DE GÉNÉRATION DU PDF (receipt_4)
+# FONCTION DE GÉNÉRATION DU PDF
 # ==========================================
 
 
@@ -988,7 +989,7 @@ def generer_ticket_pdf(
 
 
 # ==========================================
-# GESTION DES COINS ET DU BOUTON DISCORD (COG)
+# INTERFACE DISCORD & BOUTONS
 # ==========================================
 
 
@@ -999,18 +1000,19 @@ class TicketDownloadView(discord.ui.View):
     self.pdf_path = pdf_path
 
   @discord.ui.button(
-      label="Download the receipt",
-      style=discord.ButtonStyle.green,
-      emoji="📥",
-      custom_id="download_receipt_btn",
+      label="Create your receipt",
+      style=discord.ButtonStyle.blurple,
+      emoji="📄",
+      custom_id="create_receipt_btn",
   )
   async def download_button_callback(
       self, interaction: discord.Interaction, button: discord.ui.Button
   ):
+    # Logique lors du clic sur le bouton de création/téléchargement
     if os.path.exists(self.pdf_path):
       file = discord.File(self.pdf_path, filename="Receipt.pdf")
       await interaction.response.send_message(
-          "Voici votre ticket de caisse généré !", file=file, ephemeral=True
+          "Voici votre reçu de caisse !", file=file, ephemeral=True
       )
     else:
       await interaction.response.send_message(
@@ -1018,90 +1020,59 @@ class TicketDownloadView(discord.ui.View):
       )
 
 
-class TicketCog(commands.Cog):
+class ReceiptCog(commands.Cog):
 
   def __init__(self, bot):
     self.bot = bot
 
-  def get_user_coins(self, user_id: int) -> int:
-    # TODO: Remplace par ta vraie logique de lecture de la base de données
-    return 5
-
-  def remove_user_coins(self, user_id: int, amount: int):
-    # TODO: Remplace par ta vraie logique de mise à jour des coins
-    pass
-
-  @discord.app_commands.command(
-      name="generer_ticket", description="Génère ton ticket de caisse (1 coin)"
+  @app_commands.command(
+      name="setup_receipt",
+      description="Affiche le panel d'initialisation des reçus",
   )
-  async def generer_ticket(
-      self,
-      interaction: discord.Interaction,
-      nom_article: str,
-      prix: str,
-      date_valeur: str,
-      date_lettre: str,
-      heure: str,
-      code_avis: str,
-      tva: str,
-  ):
-    # Configuration du footer (nom du bot + date/heure actuelle)
+  async def setup_receipt(self, interaction: discord.Interaction):
+    # Récupération dynamique du nom, de l'avatar du bot et de la date (exactement comme dans addcoin.py)
     bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
     bot_name = self.bot.user.name if self.bot.user else "Bot"
     now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
     footer_text = f"{bot_name} | {now_str}"
 
-    user_id = interaction.user.id
-
-    solde = self.get_user_coins(user_id)
-    if solde < 1:
-      embed_refuse = discord.Embed(
-          title="❌ Solde insuffisant",
-          description=(
-              "Vous n'avez pas assez de coins (1 coin requis) pour générer ce"
-              " ticket."
-          ),
-          color=discord.Color.from_str("#ff0000"),
-      )
-      if bot_avatar:
-        embed_refuse.set_footer(text=footer_text, icon_url=bot_avatar)
-      else:
-        embed_refuse.set_footer(text=footer_text)
-      await interaction.response.send_message(embed=embed_refuse, ephemeral=True)
-      return
-
-    self.remove_user_coins(user_id, 1)
-
-    pdf_path = generer_ticket_pdf(
-        nom_article=nom_article,
-        prix_article_str=prix,
-        date_valeur=date_valeur,
-        date_lettre=date_lettre,
-        heure_valeur=heure,
-        code_avis=code_avis,
-        tva_str=tva,
-    )
-
     embed = discord.Embed(
-        title="Ticket prêt !",
+        title="Receipt Tool",
         description=(
-            "Votre ticket a été généré avec succès.\n🪙 **1 coin** a été débité"
-            " de votre compte.\n\nCliquez sur le bouton ci-dessous pour"
-            " télécharger votre reçu."
+            "Welcome to our **server's invoicing system**! ✨\n\nYou can"
+            " **generate your receipt** using the **button below this"
+            " message**. You will only need to provide a **few details** to"
+            " **finalize the creation** of your receipt.\n\n🏛️ **Cost to create a"
+            " receipt :**\nGenerating a receipt will **deduct 1 coin** from your"
+            " **personal balance**. If you **don't have any coins** in your"
+            " account, you can **open a ticket** at `# ticket` to order"
+            " some!\n\nℹ️ Unfortunately, only the **French version** is"
+            " currently available; our team will **soon** be making **other"
+            " languages** available to you."
         ),
-        color=discord.Color.blue(),
+        color=discord.Color.from_str("#0058ff"),
     )
+
+    # Application rigoureuse du footer dynamique avec l'icône du bot
     if bot_avatar:
       embed.set_footer(text=footer_text, icon_url=bot_avatar)
     else:
       embed.set_footer(text=footer_text)
 
-    view = TicketDownloadView(pdf_path)
-
-    await interaction.response.send_message(
-        embed=embed, view=view, ephemeral=True
+    # Génération fictive d'un PDF par défaut pour le bouton du panel (ou adaptation selon ton flux)
+    dummy_pdf_path = generer_ticket_pdf(
+        nom_article="Article par défaut",
+        prix_article_str="5.99 €",
+        date_valeur="28/08/2026",
+        date_lettre="28 août 2026",
+        heure_valeur="18:30",
+        code_avis="1234",
+        tva_str="1.00 €",
     )
+    view = TicketDownloadView(dummy_pdf_path)
+
+    await interaction.response.send_message(embed=embed, view=view)
 
 
 async def setup(bot):
-  await bot.add_cog(TicketCog(bot))
+  await bot.add_cog(ReceiptCog(bot))
