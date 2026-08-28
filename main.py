@@ -38,6 +38,7 @@ async def main():
     await client.load_extension("removediscount")
     await client.load_extension("invoice")
     await client.load_extension("ticket")
+    await client.load_extension("stock")
 
     await client.start(TOKEN)
 
