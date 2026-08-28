@@ -214,30 +214,26 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.3)
 
-  # 10 bis. --- Insertion du NOUVEAU montant "1,00 €" ---
-  texte_1e_nouveau = "1,00 €"
-  taille_1e_nouveau = 9.5
-  espacement_1e_nouveau = 0
-
+  # 10 bis. --- Insertion du montant TVA dynamique (1er affichage TVA) ---
   right_pt_1e_nouveau = 72.7 / 25.4 * 72
   top_pt_1e_nouveau = 77.6 / 25.4 * 72
   page.insert_font(
       fontname="CeraMediumMontantTVA2", fontfile=police_medium
   )
   largeur_totale_1e_nov = sum(
-      font_medium.text_length(c, fontsize=taille_1e_nouveau) + espacement_1e_nouveau for c in texte_1e_nouveau
+      font_medium.text_length(c, fontsize=9.5) for c in tva_str
   )
   x = right_pt_1e_nouveau - largeur_totale_1e_nov
-  y = top_pt_1e_nouveau + taille_1e_nouveau
-  for c in texte_1e_nouveau:
+  y = top_pt_1e_nouveau + 9.5
+  for c in tva_str:
     page.insert_text(
         (x, y),
         c,
         fontname="CeraMediumMontantTVA2",
-        fontsize=taille_1e_nouveau,
+        fontsize=9.5,
         color=(0, 0, 0),
     )
-    x += font_medium.text_length(c, fontsize=taille_1e_nouveau) + espacement_1e_nouveau
+    x += font_medium.text_length(c, fontsize=9.5)
 
   # 11. --- Insertion du texte "Total" ---
   texte_tot_label = "Total"
@@ -255,30 +251,26 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=9.3)
 
-  # 12. --- Insertion du premier texte "1,00 €" ---
-  texte_1e = "1,00 €"
-  taille_1e = 9.5
-  espacement_1e = -0.02
-
+  # 12. --- Insertion du montant Total TVA dynamique (Corrigé pour utiliser tva_str au lieu de prix_article_str) ---
   right_pt_1e = 72.6 / 25.4 * 72
   top_pt_1e = 81.4 / 25.4 * 72
   page.insert_font(
       fontname="CeraMediumTotalMontant", fontfile=police_medium
   )
   largeur_totale_1e = sum(
-      font_medium.text_length(c, fontsize=taille_1e) + espacement_1e for c in texte_1e
+      font_medium.text_length(c, fontsize=9.5) - 0.02 for c in tva_str
   )
   x = right_pt_1e - largeur_totale_1e
-  y = top_pt_1e + taille_1e
-  for c in texte_1e:
+  y = top_pt_1e + 9.5
+  for c in tva_str:
     page.insert_text(
         (x, y),
         c,
         fontname="CeraMediumTotalMontant",
-        fontsize=taille_1e,
+        fontsize=9.5,
         color=(0, 0, 0),
     )
-    x += font_medium.text_length(c, fontsize=taille_1e) + espacement_1e
+    x += font_medium.text_length(c, fontsize=9.5) - 0.02
 
   # 13. --- Insertion du texte "Nombre d'articles : 1" ---
   texte_nb = "Nombre d'articles : 1"
