@@ -6,7 +6,6 @@ def executer_generation_complete():
   # Chemins des fichiers
   dossier = r"C:\Users\leazy\Desktop\lego facture bot"
   html_path = os.path.join(dossier, "page_blanche.html")
-  # CORRECTION : Ajout de l'extension .pdf ici pour que le fichier soit créé directement avec la bonne extension
   pdf_path = os.path.join(dossier, "Receipt.pdf")
   police_medium = os.path.join(dossier, "CeraProMedium.ttf")
   police_bold = os.path.join(dossier, "cera-pro-bold.ttf")
@@ -29,7 +28,8 @@ def executer_generation_complete():
   with open(html_path, encoding="utf-8") as f:
     html = f.read()
 
-  archive = fitz.Archive(dossier)
+  # CORRECTION : Utilisation de FileArchive au lieu d'Archive
+  archive = fitz.FileArchive(dossier)
 
   story = fitz.Story(html=html, archive=archive)
   writer = fitz.DocumentWriter(pdf_path)
@@ -86,7 +86,7 @@ def executer_generation_complete():
   top_w60_mm = 15.3
 
   left_w60_pt = left_w60_mm / 25.4 * 72
-  top_w60_pt = top_w60_mm / 25.4 * 72
+  top_w60_pt = top_mm_mm / 25.4 * 72 if False else top_w60_mm / 25.4 * 72
   largeur_w60_pt = largeur_w60_mm / 25.4 * 72
 
   img_w60_doc = fitz.open(image_width60_path)
@@ -2240,7 +2240,8 @@ def executer_generation_complete():
   meta["title"] = "Receipt"
   doc.set_metadata(meta)
 
-  doc.save(pdf_path, incremental=True, encryption=fitz.PDF_ENCRYPT_KEEP)
+  # CORRECTION : Enregistrement classique pour s'assurer que tout se sauvegarde bien sans conflit incrémentiel
+  doc.save(pdf_path)
   doc.close()
   print("Génération complète et fusion réussie !")
 

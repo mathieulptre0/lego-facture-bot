@@ -26,6 +26,8 @@ async def on_ready():
     await client.load_extension("discountlist")
     await client.load_extension("ticket")
     await client.load_extension("invoice")
+    await client.load_extension("bot")
+    await client.load_extension("receipt")
     print("Commandes chargées avec succès !")
   except Exception as e:
     print(f"Erreur lors du chargement des extensions : {e}")
