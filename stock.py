@@ -42,12 +42,10 @@ class StockProductModal(discord.ui.Modal):
         if self.action_type == "add":
             self.view_instance.temp_products.append({"name": name, "price": price, "qty": qty})
         elif self.action_type == "edit" and self.product_index is not None:
-            if self.product_index < len(self.view_instance.temp_products):
-                self.view_instance.temp_products[self.product_index] = {"name": name, "price": price, "qty": qty}
+            if self.product_index in self.view_instance.pending_edits:
+                self.view_instance.pending_edits[self.product_index] = {"name": name, "price": price, "qty": qty}
             else:
-                real_index = self.product_index - len(self.view_instance.temp_products)
-                self.view_instance.products[real_index] = {"name": name, "price": price, "qty": qty}
-                await self.view_instance.sync_public_stock(interaction)
+                self.view_instance.pending_edits[self.product_index] = {"name": name, "price": price, "qty": qty}
         
         self.view_instance.mode = "main"
         self.view_instance.rebuild_items()
@@ -62,10 +60,15 @@ class StockProductSelect(discord.ui.Select):
         all_products = self.view_instance.temp_products + self.view_instance.products
         
         for index, p in enumerate(all_products):
+            if mode == "remove" and index in self.view_instance.pending_removes:
+                continue
+            
+            current_p = self.view_instance.pending_edits.get(index, p)
+            
             options.append(
                 discord.SelectOption(
-                    label=f"{p['name']}",
-                    description=f"Price: {p['price']} € | Qty: {p['qty']}",
+                    label=f"{current_p['name']}",
+                    description=f"Price: {current_p['price']} € | Qty: {current_p['qty']}",
                     value=str(index),
                     emoji="<:arrow:1542297262544130168>"
                 )
@@ -92,24 +95,17 @@ class StockProductSelect(discord.ui.Select):
 
         index = int(self.values[0])
         all_products = self.view_instance.temp_products + self.view_instance.products
-        p = all_products[index]
+        p = self.view_instance.pending_edits.get(index, all_products[index])
 
         if self.mode == "remove":
-            if index < len(self.view_instance.temp_products):
-                removed = self.view_instance.temp_products.pop(index)
-                desc = f"Product `{removed['name']}` removed from temporary list."
-            else:
-                real_index = index - len(self.view_instance.temp_products)
-                removed = self.view_instance.products.pop(real_index)
-                await self.view_instance.sync_public_stock(interaction)
-                desc = f"Product `{removed['name']}` removed from stock!"
+            if index not in self.view_instance.pending_removes:
+                self.view_instance.pending_removes.append(index)
             
-            self.view_instance.mode = "main"
             self.view_instance.rebuild_items()
             await self.view_instance.update_panel(interaction)
 
             embed = discord.Embed(
-                description=desc,
+                description=f"Product `{p['name']}` marked for removal. Click **Send** to confirm.",
                 color=0x0058ff
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -172,6 +168,8 @@ class StockPanelView(discord.ui.View):
         self.bot = bot
         self.temp_products = []
         self.products = []
+        self.pending_removes = []
+        self.pending_edits = {}
         self.stock_message_id = stock_message_id
         self.mode = "main"
         self.rebuild_items()
@@ -202,13 +200,22 @@ class StockPanelView(discord.ui.View):
                 value="<:box:1542297038283079770> **__Products__ :**",
                 inline=False
             )
-            names = [f"`{p['name']}`" for p in display_products]
-            prices = [f"`{p['price']} €`" for p in display_products]
-            qtys = [f"`{p['qty']}`" for p in display_products]
+            names = []
+            prices = []
+            qtys = []
 
-            embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
-            embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
-            embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+            for idx, p in enumerate(display_products):
+                if idx in self.pending_removes:
+                    continue
+                current_p = self.pending_edits.get(idx, p)
+                names.append(f"`{current_p['name']}`")
+                prices.append(f"`{current_p['price']} €`")
+                qtys.append(f"`{current_p['qty']}`")
+
+            if names:
+                embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
+                embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
+                embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
 
         embed.set_footer(
             text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
@@ -290,6 +297,27 @@ class SendButton(discord.ui.Button):
             )
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
             return
+
+        # Apply pending edits
+        for idx, new_data in self.view_instance.pending_edits.items():
+            if idx < len(self.view_instance.temp_products):
+                self.view_instance.temp_products[idx] = new_data
+            else:
+                real_index = idx - len(self.view_instance.temp_products)
+                if real_index < len(self.view_instance.products):
+                    self.view_instance.products[real_index] = new_data
+
+        # Apply pending removals (sorted descending to avoid index shifting issues)
+        for idx in sorted(self.view_instance.pending_removes, reverse=True):
+            if idx < len(self.view_instance.temp_products):
+                self.view_instance.temp_products.pop(idx)
+            else:
+                real_index = idx - len(self.view_instance.temp_products)
+                if real_index < len(self.view_instance.products):
+                    self.view_instance.products.pop(real_index)
+
+        self.view_instance.pending_removes.clear()
+        self.view_instance.pending_edits.clear()
 
         if self.view_instance.temp_products:
             self.view_instance.products.extend(self.view_instance.temp_products)
