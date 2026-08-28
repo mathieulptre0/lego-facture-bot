@@ -16,12 +16,10 @@ client = commands.Bot(command_prefix="!", intents=INTENTS)
 
 @client.event
 async def on_ready():
-  # Enregistrement de la vue persistante pour les boutons globaux
   client.add_view(PersistentReceiptView())
   print(f"Bot connecté en tant que {client.user} (ID: {client.user.id})")
   print("Prêt à générer des reçus.")
 
-  # Synchronisation des commandes slash avec Discord
   try:
     synced = await client.tree.sync()
     print(f"Commandes slash synchronisées : {len(synced)}")
@@ -31,9 +29,8 @@ async def on_ready():
 
 async def main():
   async with client:
-    # Chargement de tous tes cogs / extensions
+    # Chargement des cogs valides (receipt.py est retiré)
     await client.load_extension("receipt_cog")
-    await client.load_extension("receipt")
     await client.load_extension("addcoin")
     await client.load_extension("removecoin")
     await client.load_extension("discount")
