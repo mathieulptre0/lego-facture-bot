@@ -39,11 +39,18 @@ def save_user_coupon(user_id: int, coupon_code: str, percentage: int):
 def load_user_coupons(user_id: int):
     return list(coupons_collection.find({"user_id": user_id}))
 
-def delete_user_coupon(coupon_code: str):
-    coupon = coupons_collection.find_one_and_delete({"code": coupon_code.upper()})
+def delete_user_coupon(user_id: int, coupon_code: str):
+    coupon = coupons_collection.find_one_and_delete({
+        "user_id": user_id, 
+        "code": coupon_code.upper()
+    })
     if coupon:
         return coupon["user_id"], coupon.get("percentage", coupon.get("Percentage", 0))
     return None, None
 
 def remove_coupon_from_db(coupon_code: str):
-    return delete_user_coupon(coupon_code)
+    # Rétrocompatibilité si appelé sans user_id, supprime par code direct
+    coupon = coupons_collection.find_one_and_delete({"code": coupon_code.upper()})
+    if coupon:
+        return coupon["user_id"], coupon.get("percentage", coupon.get("Percentage", 0))
+    return None, None

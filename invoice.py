@@ -720,7 +720,7 @@ class InvoiceCog(commands.Cog):
         if paid_amount < expected_total:
             return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
 
-        # 1. SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ VIA LA DATABASE
+        # 1. SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ VIA LA DATABASE (CIBLÉE PAR USER_ID)
         used_coupon_code = invoice_info.get("coupon_code")
         target_user_id = invoice_info.get("user_id")
 
