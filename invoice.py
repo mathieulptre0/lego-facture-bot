@@ -11,6 +11,9 @@ from aiohttp import web
 # Rôles autorisés pour la commande /invoice
 ALLOWED_ROLE_ID = 1542206470970671214
 
+# Rôle à attribuer automatiquement après un paiement réussi
+COMPLETION_ROLE_ID = 1542853152905232504
+
 # Chemin sécurisé pour stocker les coupons dans le dossier bot discord
 DB_FILE = os.path.join(os.path.dirname(__file__), "coupons_db.json")
 
@@ -154,7 +157,7 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
 
         percentage = matched_coupon.get("Percentage", 0)
         self.next_button_view.applied_discount = percentage
-        self.next_button_view.applied_coupon_code = code_entered  # On mémorise le code utilisé
+        self.next_button_view.applied_coupon_code = code_entered
 
         raw_total = self.next_button_view.base_total
         discounted_total = raw_total * (1 - (percentage / 100.0))
@@ -168,7 +171,6 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
 
         self.next_button_view.total_str = new_total_str
 
-        # Mise à jour directe du dictionnaire global IPN (incluant le code promo utilisé)
         if self.next_button_view.payment_desc in PENDING_INVOICES:
             PENDING_INVOICES[self.next_button_view.payment_desc]["total"] = float(discounted_total)
             PENDING_INVOICES[self.next_button_view.payment_desc]["coupon_code"] = code_entered
@@ -623,7 +625,7 @@ class InvoiceView(discord.ui.View):
             "total": float(total_str.replace(",", ".")),
             "footer_text": self.footer_text,
             "bot_avatar": self.bot_avatar,
-            "coupon_code": None,  # Sera mis à jour si un coupon est appliqué
+            "coupon_code": None,
         }
 
         await interaction.response.edit_message(
@@ -735,7 +737,7 @@ class InvoiceCog(commands.Cog):
         if paid_amount < expected_total:
             return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
 
-        # SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ DANS LE FICHIER JSON
+        # 1. SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ DANS LE FICHIER JSON
         used_coupon_code = invoice_info.get("coupon_code")
         target_user_id = invoice_info.get("user_id")
 
@@ -743,11 +745,7 @@ class InvoiceCog(commands.Cog):
             db = load_database()
             str_user_id = str(target_user_id)
             if str_user_id in db:
-                # On filtre la liste pour retirer le coupon utilisé
-                original_count = len(db[str_user_id])
                 db[str_user_id] = [c for c in db[str_user_id] if c.get("code") != used_coupon_code]
-                
-                # Si la liste est vide pour cet utilisateur, on nettoie sa clé ou on sauvegarde
                 save_database(db)
                 print(f"[IPN] Coupon {used_coupon_code} successfully removed from database for user {str_user_id}.")
 
@@ -759,6 +757,21 @@ class InvoiceCog(commands.Cog):
             if not channel:
                 channel = await self.bot.fetch_channel(invoice_info["channel_id"])
             
+            # 2. AJOUT DU RÔLE À L'UTILISATEUR ASSOCIÉ
+            if channel and channel.guild:
+                try:
+                    member = channel.guild.get_member(target_user_id)
+                    if not member:
+                        member = await channel.guild.fetch_member(target_user_id)
+                    
+                    role_to_add = channel.guild.get_role(COMPLETION_ROLE_ID)
+                    if member and role_to_add:
+                        await member.add_roles(role_to_add, reason=f"Order {payment_desc} successfully paid.")
+                        print(f"[IPN] Role {COMPLETION_ROLE_ID} successfully assigned to user {target_user_id}.")
+                except Exception as role_err:
+                    print(f"[IPN Error] Could not assign role to user: {role_err}")
+
+            # 3. MISE À JOUR DE L'EMBED DISCORD
             message = await channel.fetch_message(invoice_info["message_id"])
             
             completed_embed = discord.Embed(
