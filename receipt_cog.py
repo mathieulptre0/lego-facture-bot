@@ -178,7 +178,15 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
         return await loading_message.edit(embed=embed_gen_err)
 
-      file_to_send = discord.File(pdf_path, filename="receipt.pdf")
+      # On envoie le fichier dans le même salon d'envoi (ou un autre salon interne) pour récupérer son URL permanente, puis on supprime ce message technique
+      salon_cible = interaction.client.get_channel(SALON_ENVOI_ID)
+      temp_msg = await salon_cible.send(
+          file=discord.File(pdf_path, filename="receipt.pdf")
+      )
+      attachment_url = (
+          temp_msg.attachments[0].url if temp_msg.attachments else None
+      )
+      await temp_msg.delete()  # On supprime le message brut du salon pour garder l'esthétique
 
       embed_succes = discord.Embed(
           title="<:check:1542642100938477680> Receipt successfully created !",
@@ -196,18 +204,8 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       )
       embed_succes.set_footer(text="Your Footer Text Here")
 
-      # Étape 1 : On envoie d'abord le message avec l'embed et le fichier joint pour obtenir son URL
-      sent_msg = await loading_message.edit(
-          embed=embed_succes, view=None, attachments=[file_to_send]
-      )
-
-      # On récupère l'URL directe du fichier attaché sur les serveurs Discord
-      attachment_url = (
-          sent_msg.attachments[0].url if sent_msg.attachments else None
-      )
-
       if attachment_url:
-        # Étape 2 : On crée un bouton URL cliquable qui force le téléchargement du PDF
+
         class DownloadLinkView(ui.View):
 
           def __init__(self, url: str):
@@ -221,7 +219,11 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
                 )
             )
 
-        await sent_msg.edit(view=DownloadLinkView(attachment_url))
+        await loading_message.edit(
+            embed=embed_succes, view=DownloadLinkView(attachment_url)
+        )
+      else:
+        await loading_message.edit(embed=embed_succes, view=None)
 
     except Exception as e:
       print(f"Erreur dans le modal : {e}")
