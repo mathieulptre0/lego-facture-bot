@@ -11,21 +11,23 @@ def generer_ticket_pdf(
     code_avis,
     tva_str,
 ):
-  # Chemins des fichiers (ajuste selon ton arborescence si besoin)
+  # Chemins des fichiers
   dossier = r"C:\Users\leazy\Desktop\lego facture bot"
   html_path = os.path.join(dossier, "page_blanche.html")
   pdf_path = os.path.join(dossier, "Receipt.pdf")
-  
+
   # Polices et images
   police_medium = os.path.join(dossier, "CeraProMedium.ttf")
   police_bold = os.path.join(dossier, "cera-pro-bold.ttf")
-  image_avis_path = os.path.join(dossier, "73b318fc-9648-420d-b3f8-4728ee3156ee.png")
+  image_avis_path = os.path.join(
+      dossier, "73b318fc-9648-420d-b3f8-4728ee3156ee.png"
+  )
   image_width200_path = os.path.join(dossier, "width200.png")
   image_width87_path = os.path.join(dossier, "width87.png")
   image_width60_path = os.path.join(dossier, "width60.png")
   image_width99_path = os.path.join(dossier, "width99.png")
 
-  # HTML injecté avec les variables dynamiques transmises par le Bot Discord
+  # HTML injecté avec les variables dynamiques
   html_content = f"""
     <!DOCTYPE html>
     <html lang="fr">
@@ -110,18 +112,15 @@ def generer_ticket_pdf(
     </html>
     """
 
-  # Écriture temporaire du fichier HTML
   with open(html_path, "w", encoding="utf-8") as f:
     f.write(html_content)
 
-  # Conversion HTML vers PDF via PyMuPDF (fitz)
   doc = fitz.open()
-  page = doc.new_page(width=595, height=842)  # Format A4 par défaut
-  
-  # Insertion du HTML rendu
+  page = doc.new_page(width=595, height=842)
+
   rect = fitz.Rect(50, 50, 545, 792)
   page.insert_htmlbox(rect, html_content)
-  
+
   doc.save(pdf_path)
   doc.close()
 
