@@ -704,8 +704,11 @@ class InvoiceCog(commands.Cog):
             except Exception:
                 data = {}
 
+        # Capture de la remarque/mémo PayPal.me en plus des autres champs classiques
         payment_desc = (
-            data.get("description") 
+            data.get("memo")
+            or data.get("note")
+            or data.get("description") 
             or data.get("custom") 
             or data.get("item_name") 
             or data.get("payment_status")
