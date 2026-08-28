@@ -33,7 +33,7 @@ def save_user_coupon(user_id: int, coupon_code: str, percentage: int):
     coupons_collection.insert_one({
         "user_id": user_id,
         "code": coupon_code.upper(),
-        "Percentage": percentage
+        "percentage": percentage
     })
 
 def load_user_coupons(user_id: int):
@@ -42,5 +42,5 @@ def load_user_coupons(user_id: int):
 def remove_coupon_from_db(coupon_code: str):
     coupon = coupons_collection.find_one_and_delete({"code": coupon_code.upper()})
     if coupon:
-        return coupon["user_id"], coupon["Percentage"]
+        return coupon["user_id"], coupon.get("percentage", coupon.get("Percentage", 0))
     return None, None
