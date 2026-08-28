@@ -62,10 +62,9 @@ class StockProductSelect(discord.ui.Select):
         all_products = self.view_instance.temp_products + self.view_instance.products
         
         for index, p in enumerate(all_products):
-            source_tag = " [Temp]" if index < len(self.view_instance.temp_products) else " [Stock]"
             options.append(
                 discord.SelectOption(
-                    label=f"{p['name']}{source_tag}",
+                    label=f"{p['name']}",
                     description=f"Price: {p['price']} € | Qty: {p['qty']}",
                     value=str(index),
                     emoji="<:arrow:1542297262544130168>"
@@ -184,20 +183,27 @@ class StockPanelView(discord.ui.View):
             self.add_item(SendButton(self))
         else:
             self.add_item(StockProductSelect(self, self.mode))
-            self.add_item(SendButton(self))
+            self.add_item(BackToMenuButton(self))
 
     async def update_panel(self, interaction: discord.Interaction):
-        embed = discord.Embed(
-            title="Stock panel",
-            description=(
+        mode_text = "remove product" if self.mode == "remove" else "edit product" if self.mode == "edit" else ""
+        
+        if self.mode != "main":
+            description = f"You are **currently** on the **{mode_text} page** ! ✨\n\nSelect a product from the **selection menu** below to **{self.mode}** it."
+        else:
+            description = (
                 "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
                 "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
-            ),
+            )
+
+        embed = discord.Embed(
+            title="Stock panel",
+            description=description,
             color=0x0058ff
         )
         
         display_products = self.temp_products if self.temp_products else self.products
-        if display_products:
+        if self.mode == "main" and display_products:
             embed.add_field(
                 name="\u200b",
                 value="<:box:1542297038283079770> **__Products__ :**",
