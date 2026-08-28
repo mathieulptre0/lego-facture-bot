@@ -9,6 +9,7 @@ from receipt import generer_ticket_pdf
 ROLE_AUTORISE_ID = 1542206470970671214
 SALON_ENVOI_ID = 1542876927201644595
 SALON_TICKET_SUPPORT_ID = 1542238377837989888
+SALON_ARCHIVE_TICKETS_ID = 1542954377718009886
 COINS_DB_PATH = "coins_db.json"
 
 MOIS_FR = {
@@ -178,15 +179,27 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
         return await loading_message.edit(embed=embed_gen_err)
 
-      # On envoie le fichier dans le même salon d'envoi (ou un autre salon interne) pour récupérer son URL permanente, puis on supprime ce message technique
-      salon_cible = interaction.client.get_channel(SALON_ENVOI_ID)
-      temp_msg = await salon_cible.send(
-          file=discord.File(pdf_path, filename="receipt.pdf")
+      # On envoie le fichier dans le salon d'archives dédié pour qu'il reste stocké et hébergé par Discord de façon permanente
+      salon_archives = interaction.client.get_channel(SALON_ARCHIVE_TICKETS_ID)
+      if not salon_archives:
+        embed_err_salon = discord.Embed(
+            description=(
+                "❌ Erreur : Le salon d'archives des tickets est introuvable."
+            ),
+            color=discord.Color.red(),
+        )
+        return await loading_message.edit(embed=embed_err_salon)
+
+      archive_msg = await salon_archives.send(
+          content=(
+              f"📄 Ticket de caisse généré pour **{interaction.user}** (`{user_id}`)"
+              f" — Article : **{self.item_name.value.strip()}**"
+          ),
+          file=discord.File(pdf_path, filename="receipt.pdf"),
       )
       attachment_url = (
-          temp_msg.attachments[0].url if temp_msg.attachments else None
+          archive_msg.attachments[0].url if archive_msg.attachments else None
       )
-      await temp_msg.delete()  # On supprime le message brut du salon pour garder l'esthétique
 
       embed_succes = discord.Embed(
           title="<:check:1542642100938477680> Receipt successfully created !",
