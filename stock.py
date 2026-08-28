@@ -38,9 +38,9 @@ class StockSelect(discord.ui.Select):
     def __init__(self, view_instance):
         self.view_instance = view_instance
         options = [
-            discord.SelectOption(label="Add a product from stock", description="Add a product", emoji="➕"),
-            discord.SelectOption(label="Remove a product from stock", description="Remove a product", emoji="➖"),
-            discord.SelectOption(label="Edit a product from stock", description="Edit a product", emoji="✏️")
+            discord.SelectOption(label="Add a product from stock", description="Add a product", emoji="<:add:1542564459925741608>"),
+            discord.SelectOption(label="Remove a product from stock", description="Remove a product", emoji="<:remove:1542564590074855525>"),
+            discord.SelectOption(label="Edit a product from stock", description="Edit a product", emoji="<:edit:1542564664192409631>")
         ]
         super().__init__(placeholder="Choose your option...", min_values=1, max_values=1, options=options)
 
@@ -58,10 +58,11 @@ class StockSelect(discord.ui.Select):
             await interaction.response.send_message("Edit feature coming soon.", ephemeral=True)
 
 class StockPanelView(discord.ui.View):
-    def __init__(self, bot):
+    def __init__(self, bot, stock_message_id=None):
         super().__init__(timeout=None)
         self.bot = bot
         self.temp_products = []
+        self.stock_message_id = stock_message_id
         self.add_item(StockSelect(self))
 
     async def update_panel(self, interaction: discord.Interaction):
@@ -88,14 +89,17 @@ class StockPanelView(discord.ui.View):
             embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
             embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
 
-        embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
+        embed.set_footer(
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            icon_url=self.bot.user.display_avatar.url
+        )
 
         if not interaction.response.is_done():
             await interaction.response.edit_message(embed=embed, view=self)
         else:
             await interaction.message.edit(embed=embed, view=self)
 
-    @discord.ui.button(label="Send", style=discord.ButtonStyle.primary, emoji="🚀", row=1)
+    @discord.ui.button(label="Send", style=discord.ButtonStyle.secondary, emoji="<:check:1542297188498153513>", row=1)
     async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
         if not self.temp_products:
             await interaction.response.send_message("No products added to send.", ephemeral=True)
@@ -125,25 +129,39 @@ class StockPanelView(discord.ui.View):
                 value=f"If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**.",
                 inline=False
             )
-            public_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
+            public_embed.set_footer(
+                text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+                icon_url=self.bot.user.display_avatar.url
+            )
             
-            await target_channel.send(embed=public_embed)
+            message_edited = False
+            if self.stock_message_id:
+                try:
+                    existing_msg = await target_channel.fetch_message(self.stock_message_id)
+                    await existing_msg.edit(embed=public_embed)
+                    message_edited = True
+                except discord.NotFound:
+                    pass
+
+            if not message_edited:
+                new_msg = await target_channel.send(embed=public_embed)
+                self.stock_message_id = new_msg.id
 
         self.temp_products = []
         await self.update_panel(interaction)
-        await interaction.followup.send("Stock successfully updated and sent!", ephemeral=True)
+        await interaction.followup.send("Stock and panel embeds have been successfully initialized.", ephemeral=True)
 
 class Stock(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="stock", description="Affiche le panneau de gestion du stock et l'inventaire")
+    @app_commands.command(name="stock", description="Displays the stock management panel and inventory")
     async def stock(self, interaction: discord.Interaction):
         role_id = 1542206470970671214
         if not any(role.id == role_id for role in interaction.user.roles):
             error_embed = discord.Embed(
-                title="Erreur",
-                description="Vous n'avez pas la permission d'utiliser cette commande.",
+                title="Error",
+                description="You do not have the required permissions to use this command.",
                 color=discord.Color.red()
             )
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
@@ -153,7 +171,7 @@ class Stock(commands.Cog):
         stock_channel = interaction.guild.get_channel(1543003779400732784)
         
         if not panel_channel or not stock_channel:
-            await interaction.response.send_message("L'un des salons requis est introuvable.", ephemeral=True)
+            await interaction.response.send_message("One of the required channels could not be found.", ephemeral=True)
             return
 
         public_embed = discord.Embed(
@@ -164,8 +182,11 @@ class Stock(commands.Cog):
             ),
             color=0x0058ff
         )
-        public_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
-        await stock_channel.send(embed=public_embed)
+        public_embed.set_footer(
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            icon_url=self.bot.user.display_avatar.url
+        )
+        stock_msg = await stock_channel.send(embed=public_embed)
 
         panel_embed = discord.Embed(
             title="Stock panel",
@@ -175,12 +196,15 @@ class Stock(commands.Cog):
             ),
             color=0x0058ff
         )
-        panel_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
+        panel_embed.set_footer(
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            icon_url=self.bot.user.display_avatar.url
+        )
 
-        view = StockPanelView(self.bot)
+        view = StockPanelView(self.bot, stock_message_id=stock_msg.id)
         await panel_channel.send(embed=panel_embed, view=view)
         
-        await interaction.response.send_message("Les embeds de stock et de panel ont bien été initialisés.", ephemeral=True)
+        await interaction.response.send_message("Stock and panel embeds have been successfully initialized.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Stock(bot))
