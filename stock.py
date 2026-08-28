@@ -42,89 +42,72 @@ class StockProductModal(discord.ui.Modal):
         if self.action_type == "add":
             self.view_instance.temp_products.append({"name": name, "price": price, "qty": qty})
         elif self.action_type == "edit" and self.product_index is not None:
-            self.view_instance.temp_products[self.product_index] = {"name": name, "price": price, "qty": qty}
+            if self.product_index < len(self.view_instance.temp_products):
+                self.view_instance.temp_products[self.product_index] = {"name": name, "price": price, "qty": qty}
+            else:
+                real_index = self.product_index - len(self.view_instance.temp_products)
+                self.view_instance.products[real_index] = {"name": name, "price": price, "qty": qty}
+                await self.view_instance.sync_public_stock(interaction)
         
+        self.view_instance.mode = "main"
+        self.view_instance.rebuild_items()
         await self.view_instance.update_panel(interaction)
 
-class RemoveProductSelect(discord.ui.Select):
-    def __init__(self, view_instance):
+class StockItemButton(discord.ui.Button):
+    def __init__(self, product_data, index, mode, view_instance):
+        self.product_data = product_data
+        self.index = index
+        self.mode = mode
         self.view_instance = view_instance
-        options = []
         
-        # On liste les produits déjà envoyés (ou en cours) pour les supprimer un par un
-        products_source = self.view_instance.products if self.view_instance.products else self.view_instance.temp_products
-        
-        for index, p in enumerate(products_source):
-            options.append(
-                discord.SelectOption(
-                    label=p['name'],
-                    description=f"Price: {p['price']} € | Qty: {p['qty']}",
-                    value=str(index)
-                )
-            )
-        
-        if not options:
-            options.append(discord.SelectOption(label="No products available", value="none"))
-
-        super().__init__(placeholder="Select a product to remove...", min_values=1, max_values=1, options=options)
-
-    async def callback(self, interaction: discord.Interaction):
-        if self.values[0] == "none":
-            await interaction.response.send_message("No products to remove.", ephemeral=True)
-            return
-
-        index = int(self.values[0])
-        
-        if self.view_instance.products:
-            # Si on supprime depuis le stock actif, on supprime et on met à jour directement le salon public
-            removed = self.view_instance.products.pop(index)
-            await self.view_instance.sync_public_stock(interaction)
-            await interaction.response.send_message(f"Product `{removed['name']}` removed from stock!", ephemeral=True)
-        elif self.view_instance.temp_products:
-            removed = self.view_instance.temp_products.pop(index)
-            await interaction.response.send_message(f"Product `{removed['name']}` removed from temporary list.", ephemeral=True)
-            
-        await self.view_instance.update_panel(interaction)
-
-class EditProductSelect(discord.ui.Select):
-    def __init__(self, view_instance):
-        self.view_instance = view_instance
-        options = []
-        products_source = self.view_instance.products if self.view_instance.products else self.view_instance.temp_products
-        
-        for index, p in enumerate(products_source):
-            options.append(
-                discord.SelectOption(
-                    label=p['name'],
-                    description=f"Price: {p['price']} € | Qty: {p['qty']}",
-                    value=str(index)
-                )
-            )
-        
-        if not options:
-            options.append(discord.SelectOption(label="No products available", value="none"))
-
-        super().__init__(placeholder="Select a product to edit...", min_values=1, max_values=1, options=options)
-
-    async def callback(self, interaction: discord.Interaction):
-        if self.values[0] == "none":
-            await interaction.response.send_message("No products available to edit.", ephemeral=True)
-            return
-
-        index = int(self.values[0])
-        products_source = self.view_instance.products if self.view_instance.products else self.view_instance.temp_products
-        p = products_source[index]
-
-        await interaction.response.send_modal(
-            StockProductModal(
-                self.view_instance, 
-                action_type="edit", 
-                product_index=index, 
-                current_name=p['name'], 
-                current_price=p['price'], 
-                current_qty=p['qty']
-            )
+        super().__init__(
+            label=f"{product_data['name']}\nPrice: {product_data['price']} € | Qty: {product_data['qty']}",
+            style=discord.ButtonStyle.secondary,
+            emoji="<:arrow:1542297262544130168>",
+            row=0
         )
+
+    async def callback(self, interaction: discord.Interaction):
+        if self.mode == "remove":
+            if self.index < len(self.view_instance.temp_products):
+                removed = self.view_instance.temp_products.pop(self.index)
+                await interaction.response.send_message(f"Product `{removed['name']}` removed from temporary list.", ephemeral=True)
+            else:
+                real_index = self.index - len(self.view_instance.temp_products)
+                removed = self.view_instance.products.pop(real_index)
+                await self.view_instance.sync_public_stock(interaction)
+                await interaction.response.send_message(f"Product `{removed['name']}` removed from stock!", ephemeral=True)
+            
+            self.view_instance.mode = "main"
+            self.view_instance.rebuild_items()
+            await self.view_instance.update_panel(interaction)
+
+        elif self.mode == "edit":
+            await interaction.response.send_modal(
+                StockProductModal(
+                    self.view_instance, 
+                    action_type="edit", 
+                    product_index=self.index, 
+                    current_name=self.product_data['name'], 
+                    current_price=self.product_data['price'], 
+                    current_qty=self.product_data['qty']
+                )
+            )
+
+class BackToMenuButton(discord.ui.Button):
+    def __init__(self, view_instance):
+        self.view_instance = view_instance
+        super().__init__(
+            label="Back to menu",
+            style=discord.ButtonStyle.secondary,
+            emoji="<:back:1542638431598022770>",
+            row=1
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        self.view_instance.mode = "main"
+        self.view_instance.rebuild_items()
+        await self.view_instance.update_panel(interaction)
 
 class StockSelect(discord.ui.Select):
     def __init__(self, view_instance):
@@ -138,38 +121,70 @@ class StockSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         val = self.values[0]
+        total_products = len(self.view_instance.temp_products) + len(self.view_instance.products)
+
         if "Add" in val:
             await interaction.response.send_modal(StockProductModal(self.view_instance, "add"))
-        elif "Remove" in val:
-            products_to_check = self.view_instance.products if self.view_instance.products else self.view_instance.temp_products
-            if not products_to_check:
-                await interaction.response.send_message("No products to remove.", ephemeral=True)
-                return
-            
-            # Affiche un select secondaire pour choisir quel produit supprimer
-            view = discord.ui.View()
-            view.add_item(RemoveProductSelect(self.view_instance))
-            await interaction.response.send_message("Select the product you want to remove:", view=view, ephemeral=True)
+            return
 
+        if total_products == 0:
+            error_embed = discord.Embed(
+                title="<:info:1542297188498153513> Error",
+                description="There are **no products** added to the **stock** yet.",
+                color=discord.Color.red()
+            )
+            error_embed.set_footer(
+                text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+                icon_url=interaction.client.user.display_avatar.url
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            return
+
+        if "Remove" in val:
+            self.view_instance.mode = "remove"
         elif "Edit" in val:
-            products_to_check = self.view_instance.products if self.view_instance.products else self.view_instance.temp_products
-            if not products_to_check:
-                await interaction.response.send_message("No products to edit.", ephemeral=True)
-                return
-            
-            # Affiche un select secondaire pour choisir quel produit modifier
-            view = discord.ui.View()
-            view.add_item(EditProductSelect(self.view_instance))
-            await interaction.response.send_message("Select the product you want to edit:", view=view, ephemeral=True)
+            self.view_instance.mode = "edit"
+
+        self.view_instance.rebuild_items()
+        
+        embed = discord.Embed(
+            title="Stock panel",
+            description=(
+                f"You are **currently** on the **{self.view_instance.mode} product page** ! ✨\n\n"
+                f"Click on a product below to **{self.view_instance.mode}** it."
+            ),
+            color=0x0058ff
+        )
+        embed.set_footer(
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            icon_url=interaction.client.user.display_avatar.url
+        )
+        
+        if interaction.response.is_done():
+            await interaction.message.edit(embed=embed, view=self.view_instance)
+        else:
+            await interaction.response.edit_message(embed=embed, view=self.view_instance)
 
 class StockPanelView(discord.ui.View):
     def __init__(self, bot, stock_message_id=None):
         super().__init__(timeout=None)
         self.bot = bot
         self.temp_products = []
-        self.products = []  # Produits validés et affichés dans le salon public
+        self.products = []
         self.stock_message_id = stock_message_id
-        self.add_item(StockSelect(self))
+        self.mode = "main"
+        self.rebuild_items()
+
+    def rebuild_items(self):
+        self.clear_items()
+        if self.mode == "main":
+            self.add_item(StockSelect(self))
+            self.add_item(SendButton(self))
+        else:
+            all_products = self.temp_products + self.products
+            for index, p in enumerate(all_products):
+                self.add_item(StockItemButton(p, index, self.mode, self))
+            self.add_item(BackToMenuButton(self))
 
     async def update_panel(self, interaction: discord.Interaction):
         embed = discord.Embed(
@@ -253,18 +268,36 @@ class StockPanelView(discord.ui.View):
         new_msg = await target_channel.send(embed=public_embed)
         self.stock_message_id = new_msg.id
 
-    @discord.ui.button(label="Send", style=discord.ButtonStyle.secondary, emoji="<:check:1542297188498153513>", row=1)
-    async def send_button(self, interaction: discord.Interaction, button: discord.ui.Button):
-        if not self.temp_products and not self.products:
-            await interaction.response.send_message("No products added to send.", ephemeral=True)
+class SendButton(discord.ui.Button):
+    def __init__(self, view_instance):
+        self.view_instance = view_instance
+        super().__init__(
+            label="Send",
+            style=discord.ButtonStyle.secondary,
+            emoji="<:check:1542297188498153513>",
+            row=1
+        )
+
+    async def callback(self, interaction: discord.Interaction):
+        if not self.view_instance.temp_products and not self.view_instance.products:
+            error_embed = discord.Embed(
+                title="<:info:1542297188498153513> Error",
+                description="There are **no products** added to the **invoice** yet.",
+                color=discord.Color.red()
+            )
+            error_embed.set_footer(
+                text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+                icon_url=interaction.client.user.display_avatar.url
+            )
+            await interaction.response.send_message(embed=error_embed, ephemeral=True)
             return
 
-        if self.temp_products:
-            self.products.extend(self.temp_products)
-            self.temp_products = []
+        if self.view_instance.temp_products:
+            self.view_instance.products.extend(self.view_instance.temp_products)
+            self.view_instance.temp_products = []
 
-        await self.sync_public_stock(interaction)
-        await self.update_panel(interaction)
+        await self.view_instance.sync_public_stock(interaction)
+        await self.view_instance.update_panel(interaction)
         
         if not interaction.response.is_done():
             await interaction.response.send_message("Stock successfully updated and sent!", ephemeral=True)
