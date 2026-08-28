@@ -84,6 +84,9 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
 
   async def on_submit(self, interaction: discord.Interaction):
+    # 1. Différer la réponse pour éviter l'expiration du Modal (limite de 3 secondes)
+    await interaction.response.defer(ephemeral=True)
+
     user_id = interaction.user.id
     coins = charger_coins(user_id)
     if coins <= 0:
@@ -94,30 +97,47 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      return await interaction.response.send_message(
-          embed=embed_err, ephemeral=True
-      )
+      return await interaction.followup.send(embed=embed_err, ephemeral=True)
+
+    # 2. Envoyer un embed d'attente en anglais
+    embed_loading = discord.Embed(
+        title="⌛ Generating your receipt...",
+        description=(
+            "Please wait a moment while we process your request and generate"
+            " your PDF receipt."
+        ),
+        color=0xF1C40F,  # Jaune/Orange de chargement
+    )
+    loading_message = await interaction.followup.send(
+        embed=embed_loading, ephemeral=True
+    )
 
     try:
       raw_price = self.item_price.value.strip().replace(",", ".")
       prix_float = float(raw_price)
       prix_str_formate = f"{prix_float:.2f} €".replace(".", ",")
     except ValueError:
-      return await interaction.response.send_message(
-          "❌ **Invalid price format.** Please enter a valid number (e.g.,"
-          " `5.99` or `1`).",
-          ephemeral=True,
+      embed_bad_price = discord.Embed(
+          description=(
+              "❌ **Invalid price format.** Please enter a valid number (e.g.,"
+              " `5.99` or `1`)."
+          ),
+          color=discord.Color.red(),
       )
+      return await loading_message.edit(embed=embed_bad_price)
 
     date_str_brute = self.purchase_date.value.strip()
     try:
       dt_obj = datetime.strptime(date_str_brute, "%d/%m/%Y %H:%M:%S")
     except ValueError:
-      return await interaction.response.send_message(
-          "❌ **Invalid date format.** Please use: `JJ/MM/AAAA HH:MM:SS` (e.g.,"
-          " `24/08/2026 19:35:15`).",
-          ephemeral=True,
+      embed_bad_date = discord.Embed(
+          description=(
+              "❌ **Invalid date format.** Please use: `JJ/MM/AAAA HH:MM:SS`"
+              " (e.g., `24/08/2026 19:35:15`)."
+          ),
+          color=discord.Color.red(),
       )
+      return await loading_message.edit(embed=embed_bad_date)
 
     texte_date_valeur = dt_obj.strftime("%d/%m/%Y %H:%M:%S")
     jour_clean = str(dt_obj.day)
@@ -145,9 +165,11 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
     )
 
     if not pdf_path or not os.path.exists(pdf_path):
-      return await interaction.response.send_message(
-          "❌ An error occurred while generating the PDF receipt.", ephemeral=True
+      embed_gen_err = discord.Embed(
+          description="❌ An error occurred while generating the PDF receipt.",
+          color=discord.Color.red(),
       )
+      return await loading_message.edit(embed=embed_gen_err)
 
     file_to_send = discord.File(pdf_path, filename="receipt.pdf")
     embed_succes = discord.Embed(
@@ -187,8 +209,9 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
 
     view = DownloadView(pdf_path)
-    await interaction.response.send_message(
-        embed=embed_succes, view=view, file=file_to_send, ephemeral=True
+    # Édition du message d'attente pour afficher le résultat final et le fichier
+    await loading_message.edit(
+        embed=embed_succes, view=view, attachments=[file_to_send]
     )
 
 
