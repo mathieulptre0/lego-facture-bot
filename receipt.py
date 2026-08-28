@@ -1033,4 +1033,3 @@ def generer_ticket_pdf(
   doc.close()
 
   return pdf_path
-```[cite: 4]
