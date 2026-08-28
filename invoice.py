@@ -125,20 +125,38 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         self.next_button_view = next_button_view
 
     async def on_submit(self, interaction: discord.Interaction):
-        code_entered = self.coupon_code.value.strip()
-        user_id = self.next_button_view.parent_view.target_user.id
+        code_entered = self.coupon_code.value.strip().upper()
+        target_user_id = self.next_button_view.parent_view.target_user.id
         db = load_database()
-        str_user_id = str(user_id)
 
-        user_coupons = db.get(str_user_id, [])
         matched_coupon = None
+        found_user_id = None
 
-        for coupon in user_coupons:
-            if coupon.get("code") == code_entered:
-                matched_coupon = coupon
-                break
+        # Recherche robuste : gère aussi bien un dictionnaire par utilisateur qu'une liste globale
+        if isinstance(db, dict):
+            for key, value in db.items():
+                if isinstance(value, list):
+                    for coupon in value:
+                        if str(coupon.get("code", "")).upper() == code_entered:
+                            matched_coupon = coupon
+                            found_user_id = int(key)
+                            break
+                elif isinstance(value, dict):
+                    if str(value.get("code", "")).upper() == code_entered:
+                        matched_coupon = value
+                        found_user_id = int(key)
+                        break
+                if matched_coupon:
+                    break
+        elif isinstance(db, list):
+            for coupon in db:
+                if str(coupon.get("code", "")).upper() == code_entered:
+                    matched_coupon = coupon
+                    found_user_id = int(coupon.get("user_id", 0))
+                    break
 
-        if not matched_coupon:
+        # Vérification : le code existe-t-il ET appartient-il bien au bon utilisateur ?
+        if not matched_coupon or not found_user_id or int(found_user_id) != int(target_user_id):
             error_embed = discord.Embed(
                 title="**<:info:1542297839026053190> Invalid coupon**",
                 description=(
@@ -155,7 +173,7 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
                 error_embed.set_footer(text=self.next_button_view.parent_view.footer_text)
             return await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-        percentage = matched_coupon.get("Percentage", 0)
+        percentage = matched_coupon.get("Percentage", 0) or matched_coupon.get("percentage", 0)
         self.next_button_view.applied_discount = percentage
         self.next_button_view.applied_coupon_code = code_entered
 
@@ -174,7 +192,7 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         if self.next_button_view.payment_desc in PENDING_INVOICES:
             PENDING_INVOICES[self.next_button_view.payment_desc]["total"] = float(discounted_total)
             PENDING_INVOICES[self.next_button_view.payment_desc]["coupon_code"] = code_entered
-            PENDING_INVOICES[self.next_button_view.payment_desc]["user_id"] = user_id
+            PENDING_INVOICES[self.next_button_view.payment_desc]["user_id"] = target_user_id
 
         embed = interaction.message.embeds[0]
         
