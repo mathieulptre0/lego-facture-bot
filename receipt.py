@@ -11,7 +11,7 @@ def executer_generation_complete(
     heure="19:35:15",
     code_besoin="149-64863689-08-24-2026 ",
 ):
-  dossier = r"C:\Users\leazy\Desktop\lego facture bot"
+  dossier = os.path.dirname(__file__)
   html_path = os.path.join(dossier, "page_blanche.html")
   pdf_path = os.path.join(dossier, "Receipt.pdf")
   police_medium = os.path.join(dossier, "CeraProMedium.ttf")
@@ -194,15 +194,31 @@ def executer_generation_complete(
     )
     im_doc = fitz.open(img_path)
     h_pt = w_pt * (im_doc[0].rect.height / im_doc[0].rect.width)
-    page.insert_image(fitz.Rect(l_pt, t_pt, l_pt + w_pt, t_pt + h_pt), filename=img_path)
+    page.insert_image(
+        fitz.Rect(l_pt, t_pt, l_pt + w_pt, t_pt + h_pt), filename=img_path
+    )
 
   # Blocs de texte d'avis & Code d'avis dynamique
   for texte, t_sz, l_mm, t_mm, fname, is_b in [
       ("Comment jugez-", 10.5, 39.8, 124.7, "CeraBoldJuger", True),
       ("vous votre", 10.4, 39.8, 129, "CeraBoldVousVotre", True),
       ("expérience ?", 10.4, 39.8, 133.2, "CeraBoldExperience", True),
-      ("Sinon, répondez en 3 minutes à notre", 8, 23.6, 143.8, "CeraMediumSinon", False),
-      ("questionnaire sur LEGO.com/", 8, 23.6, 146.5, "CeraMediumQuestionnaire", False),
+      (
+          "Sinon, répondez en 3 minutes à notre",
+          8,
+          23.6,
+          143.8,
+          "CeraMediumSinon",
+          False,
+      ),
+      (
+          "questionnaire sur LEGO.com/",
+          8,
+          23.6,
+          146.5,
+          "CeraMediumQuestionnaire",
+          False,
+      ),
       ("storesurvey", 8, 23.5, 149.3, "CeraMediumStoreSurvey", False),
       ("Au besoin, utilisez ce code :", 8, 23.5, 154.2, "CeraMediumAuBesoin", False),
       (code_besoin, 8, 23.5, 157, "CeraMediumCodeBesoin", False),
@@ -222,25 +238,76 @@ def executer_generation_complete(
         fitz.Point(2.2 / 25.4 * 72, y_m / 25.4 * 72),
         fitz.Point(73 / 25.4 * 72, y_m / 25.4 * 72),
     )
-    shape.finish(color=(0, 0, 0), width=1.3 if y_m in [216.2, 324.8, 360.2] else 1)
+    shape.finish(
+        color=(0, 0, 0), width=1.3 if y_m in [216.2, 324.8, 360.2] else 1
+    )
     shape.commit()
 
   # Insiders, abonnements et mentions légales
   for txt, sz, l_mm, t_mm, fname, is_b in [
       ("Deviens un LEGO® Insider !", 10.5, 14, 170.8, "CeraBoldInsider", True),
-      ("Rejoins le programme LEGO® Insiders pour", 9.7, 4, 177.2, "CeraMediumInsider1", False),
-      ("profiter de formidables avantages et", 9.7, 4, 180.7, "CeraMediumInsider2", False),
+      (
+          "Rejoins le programme LEGO® Insiders pour",
+          9.7,
+          4,
+          177.2,
+          "CeraMediumInsider1",
+          False,
+      ),
+      (
+          "profiter de formidables avantages et",
+          9.7,
+          4,
+          180.7,
+          "CeraMediumInsider2",
+          False,
+      ),
       ("récompenses LEGO®", 9.7, 4, 184, "CeraMediumInsider3", False),
       ("LEGO.com/insiders", 9.7, 4, 189, "CeraMediumInsiderUrl", False),
       ("S'abonner aux e-mails", 10.5, 18.3, 198.8, "CeraBoldAbonner", True),
-      ("Suivez notre actualité en vous abonnant à", 9.5, 4.8, 205.5, "CeraMediumAbonner1", False),
-      ("notre programme d'e-mails LEGO.com/email", 9.5, 4.8, 208.8, "CeraMediumAbonner2", False),
+      (
+          "Suivez notre actualité en vous abonnant à",
+          9.5,
+          4.8,
+          205.5,
+          "CeraMediumAbonner1",
+          False,
+      ),
+      (
+          "notre programme d'e-mails LEGO.com/email",
+          9.5,
+          4.8,
+          208.8,
+          "CeraMediumAbonner2",
+          False,
+      ),
       ("Caractéristiques de sécurité", 10.5, 12.9, 218.8, "CeraBoldSecurite", True),
       ("Duplicata", 7.2, 2, 268.1, "CeraBoldDuplicata", True),
-      ("1. Duplicata de 7fd15f69-a829-4946-b76d-fe8c93929286", 7.2, 2, 270.8, "CeraMediumDuplicataRef", False),
+      (
+          "1. Duplicata de 7fd15f69-a829-4946-b76d-fe8c93929286",
+          7.2,
+          2,
+          270.8,
+          "CeraMediumDuplicataRef",
+          False,
+      ),
       ("Système de caisse certifié LNE", 7.2, 2, 273.1, "CeraMediumLNE", False),
-      ("LEGO BRAND RETAIL S.A.S est enregistré au Registre", 7.2, 2, 278.5, "CeraMediumLegal1", False),
-      ("national des metteurs sur le marché des jeux et jouets sous", 7.2, 2, 281, "CeraMediumLegal2", False),
+      (
+          "LEGO BRAND RETAIL S.A.S est enregistré au Registre",
+          7.2,
+          2,
+          278.5,
+          "CeraMediumLegal1",
+          False,
+      ),
+      (
+          "national des metteurs sur le marché des jeux et jouets sous",
+          7.2,
+          2,
+          281,
+          "CeraMediumLegal2",
+          False,
+      ),
       ("le numéro FR214763_12TBLL.", 7.2, 2, 283.5, "CeraMediumLegal3", False),
   ]:
     page.insert_font(
@@ -263,7 +330,9 @@ def executer_generation_complete(
     )
     im_doc = fitz.open(img_path)
     h_pt = w_pt * (im_doc[0].rect.height / im_doc[0].rect.width)
-    page.insert_image(fitz.Rect(l_pt, t_pt, l_pt + w_pt, t_pt + h_pt), filename=img_path)
+    page.insert_image(
+        fitz.Rect(l_pt, t_pt, l_pt + w_pt, t_pt + h_pt), filename=img_path
+    )
 
   # Carte bancaire et détails de fin dynamiques
   for txt, sz, l_mm, t_mm, fname, is_b in [
@@ -282,7 +351,14 @@ def executer_generation_complete(
       ("056013", 9.5, 62, 317.3, "CeraMediumCBAutorValeur", False),
       ("Détails de la commande", 10.5, 2, 327.3, "CeraBoldDetailsCommande", True),
       ("Transaction n°:", 8, 2, 332.8, "CeraMediumDetailsTransaction", False),
-      ("LEGO0064863689", 8, 30.5, 332.8, "CeraMediumDetailsTransactionValeur", False),
+      (
+          "LEGO0064863689",
+          8,
+          30.5,
+          332.8,
+          "CeraMediumDetailsTransactionValeur",
+          False,
+      ),
       ("Date et heure:", 8, 2, 335.3, "CeraMediumDetailsDateLabel", False),
       (date_long, 8, 30.5, 335.3, "CeraMediumDetailsDateValeur", False),
       (heure, 8, 30.4, 338.2, "CeraMediumDetailsHeureValeur", False),
@@ -297,8 +373,20 @@ def executer_generation_complete(
 
   # Pied de page final
   for txt, sz, l_mm, t_mm, fname in [
-      ("Ce bien bénéficie auprès du vendeur d’une garantie", 8, 3.3, 347.8, "CeraMediumGarantieL1"),
-      ("légale de conformité d’une durée de deux ans à", 8, 6, 350.8, "CeraMediumGarantieL2"),
+      (
+          "Ce bien bénéficie auprès du vendeur d’une garantie",
+          8,
+          3.3,
+          347.8,
+          "CeraMediumGarantieL1",
+      ),
+      (
+          "légale de conformité d’une durée de deux ans à",
+          8,
+          6,
+          350.8,
+          "CeraMediumGarantieL2",
+      ),
       ("compter de sa remise au consommateur.", 8, 10.7, 353.5, "CeraMediumGarantieL3"),
       ("LEGO Brand Retail SAS", 8, 22.5, 365.8, "CeraMediumRetailL1"),
       ("75 rue de Tocqueville,", 8, 23.2, 368.8, "CeraMediumRetailL2"),
