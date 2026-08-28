@@ -113,7 +113,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         return await interaction.followup.send(embed=embed_err, ephemeral=True)
 
       embed_loading = discord.Embed(
-          title="⌛ **Generating receipt...**",
+          title="<:hourglass:1542971361306222682> **Generating receipt...**",
           description=(
               "Please **wait a moment** while we **process your request** and"
               " **generate** your PDF receipt."
