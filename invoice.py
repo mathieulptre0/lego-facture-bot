@@ -8,34 +8,17 @@ from discord import app_commands
 from discord.ext import commands
 from aiohttp import web
 
+# Importation des fonctions de la base de données (database.py)
+from database import load_user_coupons, delete_user_coupon
+
 # Rôles autorisés pour la commande /invoice
 ALLOWED_ROLE_ID = 1542206470970671214
 
 # Rôle à attribuer automatiquement après un paiement réussi
 COMPLETION_ROLE_ID = 1542853152905232504
 
-# Chemin sécurisé pour stocker les coupons dans le dossier bot discord
-DB_FILE = os.path.join(os.path.dirname(__file__), "coupons_db.json")
-
 # Dictionnaire global pour stocker les factures en attente de paiement
 PENDING_INVOICES = {}
-
-
-def load_database():
-    """Loads the coupon database."""
-    if not os.path.exists(DB_FILE):
-        return {}
-    with open(DB_FILE, "r", encoding="utf-8") as f:
-        try:
-            return json.load(f)
-        except json.JSONDecodeError:
-            return {}
-
-
-def save_database(data):
-    """Saves the coupon database."""
-    with open(DB_FILE, "w", encoding="utf-8") as f:
-        json.dump(data, f, indent=4, ensure_ascii=False)
 
 
 class AddProductModal(discord.ui.Modal, title="Add a product"):
@@ -127,36 +110,18 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
     async def on_submit(self, interaction: discord.Interaction):
         code_entered = self.coupon_code.value.strip().upper()
         target_user_id = self.next_button_view.parent_view.target_user.id
-        db = load_database()
-
+        
+        # Récupération des coupons de l'utilisateur directement depuis database.py
+        user_coupons = load_user_coupons(target_user_id)
+        
         matched_coupon = None
-        found_user_id = None
-
-        # Recherche robuste : gère aussi bien un dictionnaire par utilisateur qu'une liste globale
-        if isinstance(db, dict):
-            for key, value in db.items():
-                if isinstance(value, list):
-                    for coupon in value:
-                        if str(coupon.get("code", "")).upper() == code_entered:
-                            matched_coupon = coupon
-                            found_user_id = int(key)
-                            break
-                elif isinstance(value, dict):
-                    if str(value.get("code", "")).upper() == code_entered:
-                        matched_coupon = value
-                        found_user_id = int(key)
-                        break
-                if matched_coupon:
-                    break
-        elif isinstance(db, list):
-            for coupon in db:
-                if str(coupon.get("code", "")).upper() == code_entered:
-                    matched_coupon = coupon
-                    found_user_id = int(coupon.get("user_id", 0))
-                    break
+        for coupon in user_coupons:
+            if str(coupon.get("code", "")).upper() == code_entered:
+                matched_coupon = coupon
+                break
 
         # Vérification : le code existe-t-il ET appartient-il bien au bon utilisateur ?
-        if not matched_coupon or not found_user_id or int(found_user_id) != int(target_user_id):
+        if not matched_coupon:
             error_embed = discord.Embed(
                 title="**<:info:1542297839026053190> Invalid coupon**",
                 description=(
@@ -173,7 +138,7 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
                 error_embed.set_footer(text=self.next_button_view.parent_view.footer_text)
             return await interaction.response.send_message(embed=error_embed, ephemeral=True)
 
-        percentage = matched_coupon.get("Percentage", 0) or matched_coupon.get("percentage", 0)
+        percentage = matched_coupon.get("percentage", 0) or matched_coupon.get("Percentage", 0)
         self.next_button_view.applied_discount = percentage
         self.next_button_view.applied_coupon_code = code_entered
 
@@ -755,17 +720,16 @@ class InvoiceCog(commands.Cog):
         if paid_amount < expected_total:
             return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
 
-        # 1. SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ DANS LE FICHIER JSON
+        # 1. SUPPRESSION AUTOMATIQUE DU COUPON UTILISÉ VIA LA DATABASE
         used_coupon_code = invoice_info.get("coupon_code")
         target_user_id = invoice_info.get("user_id")
 
         if used_coupon_code and target_user_id:
-            db = load_database()
-            str_user_id = str(target_user_id)
-            if str_user_id in db:
-                db[str_user_id] = [c for c in db[str_user_id] if c.get("code") != used_coupon_code]
-                save_database(db)
-                print(f"[IPN] Coupon {used_coupon_code} successfully removed from database for user {str_user_id}.")
+            try:
+                delete_user_coupon(target_user_id, used_coupon_code)
+                print(f"[IPN] Coupon {used_coupon_code} successfully removed from database for user {target_user_id}.")
+            except Exception as db_err:
+                print(f"[IPN Error] Could not delete coupon from database: {db_err}")
 
         # Nettoyage de la facture en attente
         PENDING_INVOICES.pop(payment_desc)
