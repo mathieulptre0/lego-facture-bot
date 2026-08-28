@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import os
+subprocess = __import__("subprocess")
 import discord
 from discord import app_commands, ui
 from discord.ext import commands
@@ -70,6 +71,16 @@ def deduire_coin(user_id: int):
 
   with open(COINS_DB_PATH, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=4, ensure_ascii=False)
+
+  # Sauvegarde persistante pour éviter la perte sur les hébergeurs cloud éphémères
+  try:
+    subprocess.run(["git", "config", "--global", "user.name", "Bot Coins"], check=False)
+    subprocess.run(["git", "config", "--global", "user.email", "bot@local.com"], check=False)
+    subprocess.run(["git", "add", COINS_DB_PATH], check=False)
+    subprocess.run(["git", "commit", "-m", "Auto-save coins deduction"], check=False)
+    subprocess.run(["git", "push"], check=False)
+  except Exception as e:
+    print(f"Erreur lors de la synchronisation Git automatique : {e}")
 
 
 class ReceiptModal(ui.Modal, title="Receipt Creation"):

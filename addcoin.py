@@ -1,6 +1,7 @@
 from datetime import datetime
 import json
 import os
+subprocess = __import__("subprocess")
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -28,6 +29,16 @@ def load_database():
 def save_database(data):
   with open(DB_FILE, "w", encoding="utf-8") as f:
     json.dump(data, f, indent=4, ensure_ascii=False)
+  
+  # Sauvegarde persistante pour éviter la perte sur les hébergeurs cloud éphémères
+  try:
+    subprocess.run(["git", "config", "--global", "user.name", "Bot Coins"], check=False)
+    subprocess.run(["git", "config", "--global", "user.email", "bot@local.com"], check=False)
+    subprocess.run(["git", "add", DB_FILE], check=False)
+    subprocess.run(["git", "commit", "-m", "Auto-save coins database"], check=False)
+    subprocess.run(["git", "push"], check=False)
+  except Exception as e:
+    print(f"Erreur lors de la synchronisation Git automatique : {e}")
 
 
 def update_user_coins(user_id: int, amount: int):
