@@ -4,9 +4,6 @@ import os
 import discord
 from discord import app_commands
 from discord.ext import commands
-
-# Importe ta fonction de génération depuis receipt.py
-# Assure-toi que receipt.py accepte des arguments pour personnaliser le ticket
 from receipt import executer_generation_complete
 
 intents = discord.Intents.default()
@@ -16,7 +13,7 @@ bot = commands.Bot(command_prefix="!", intents=intents)
 COINS_DB_PATH = "coins_db.json"
 REQUIRED_ROLE_ID = 1542206470970671214
 CONFIG_CHANNEL_ID = 1542876927201644595
-TICKET_CHANNEL_ID = 1542238377837989888  # Pour commander des coins
+TICKET_CHANNEL_ID = 1542238377837989888
 
 
 def charger_coins():
@@ -56,7 +53,6 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
     coins_data = charger_coins()
     user_coins = coins_data.get(user_id_str, 0)
 
-    # Vérification des coins
     if user_coins < 1:
       error_embed = discord.Embed(
           title="Error",
@@ -69,16 +65,13 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
       await interaction.response.send_message(embed=error_embed, ephemeral=True)
       return
 
-    # Retrait d'un coin
     coins_data[user_id_str] = user_coins - 1
     sauvegarder_coins(coins_data)
 
-    # Formatage et traitement des données du formulaire
     raw_price = self.item_price.value.strip().replace(",", ".")
     try:
       price_float = float(raw_price)
     except ValueError:
-      # Remboursement en cas d'erreur de saisie du prix
       coins_data[user_id_str] = user_coins
       sauvegarder_coins(coins_data)
       await interaction.response.send_message(
@@ -95,19 +88,15 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
       return
 
     formatted_price = f"{price_float:.2f}".replace(".", ",") + " €"
-
-    # Calcul TVA (20% du prix)
     tva_float = price_float * 0.20
     formatted_tva = f"{tva_float:.2f}".replace(".", ",") + " €"
 
     name = self.item_name.value.strip()
     date_time_str = self.purchase_date.value.strip()
 
-    # Parsing de la date pour le code d'avis et le format long en français
     try:
       dt = datetime.datetime.strptime(date_time_str, "%d/%m/%Y %H:%M:%S")
     except ValueError:
-      # Si l'heure n'est pas fournie, on essaie juste la date
       try:
         dt = datetime.datetime.strptime(date_time_str, "%d/%m/%Y")
         date_time_str += " 00:00:00"
@@ -127,7 +116,6 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
         )
         return
 
-    # Mois en français pour le ticket
     mois_fr = {
         1: "janvier",
         2: "février",
@@ -144,13 +132,8 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
     }
     date_long_fr = f"{dt.day} {mois_fr[dt.month]} {dt.year}"
     heure_str = dt.strftime("%H:%M:%S")
+    code_avis = f"149-64863689-{dt.month:02d}-{dt.day:02d}-{dt.year} "
 
-    # Code d'avis dynamique basé sur la date (ex: 149-64863689-08-24-2026 )
-    code_avis = (
-        f"149-64863689-{dt.month:02d}-{dt.day:02d}-{dt.year} "
-    )
-
-    # Exécution de la génération du PDF via receipt.py mis à jour
     executer_generation_complete(
         item_name=name,
         item_price=formatted_price,
@@ -165,7 +148,6 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
         r"C:\Users\leazy\Desktop\lego facture bot", "Receipt.pdf"
     )
 
-    # Embed de succès éphémère
     success_embed = discord.Embed(
         title=(
             "<:check:1542642100938477680> Receipt successfully created !"
@@ -179,7 +161,7 @@ class ReceiptModal(discord.ui.Modal, title="Create your receipt"):
         ),
         color=0x0058FF,
     )
-    success_embed.set_footer(text="Système de facturation sécurisé")  # Remplace par ton footer habituel
+    success_embed.set_footer(text="Système de facturation sécurisé")
 
     class DownloadView(discord.ui.View):
 
@@ -220,14 +202,19 @@ class ReceiptPersistentView(discord.ui.View):
 @bot.event
 async def on_ready():
   bot.add_view(ReceiptPersistentView())
-  print(f"Bot connecté en tant que {bot.user}")
+  try:
+    # Synchronisation indispensable pour que Discord actualise les commandes slash
+    synced = await bot.tree.sync()
+    print(f"Commandes synchronisées : {len(synced)} command(s)")
+  except Exception as e:
+    print(e)
+  print(f"Bot connecté en tantf que {bot.user}")
 
 
 @bot.tree.command(
     name="receipt", description="Envoyer le panneau de génération de reçus"
 )
 async def receipt_command(interaction: discord.Interaction):
-  # Vérification du rôle requis
   role = interaction.guild.get_role(REQUIRED_ROLE_ID)
   if not role or role not in interaction.user.roles:
     error_embed = discord.Embed(
@@ -238,7 +225,6 @@ async def receipt_command(interaction: discord.Interaction):
     await interaction.response.send_message(embed=error_embed, ephemeral=True)
     return
 
-  # Envoi du message dans le salon spécifique
   channel = bot.get_channel(CONFIG_CHANNEL_ID)
   if not channel:
     await interaction.response.send_message(
@@ -274,5 +260,4 @@ async def receipt_command(interaction: discord.Interaction):
   )
 
 
-# Remplace par ton token de bot Discord
 # bot.run("TON_TOKEN_DISCORD")
