@@ -83,16 +83,22 @@ class StockProductSelect(discord.ui.Select):
         if self.mode == "remove":
             if index < len(self.view_instance.temp_products):
                 removed = self.view_instance.temp_products.pop(index)
-                await interaction.response.send_message(f"Product `{removed['name']}` removed from temporary list.", ephemeral=True)
+                desc = f"Product `{removed['name']}` removed from temporary list."
             else:
                 real_index = index - len(self.view_instance.temp_products)
                 removed = self.view_instance.products.pop(real_index)
                 await self.view_instance.sync_public_stock(interaction)
-                await interaction.response.send_message(f"Product `{removed['name']}` removed from stock!", ephemeral=True)
+                desc = f"Product `{removed['name']}` removed from stock!"
             
             self.view_instance.mode = "main"
             self.view_instance.rebuild_items()
             await self.view_instance.update_panel(interaction)
+
+            embed = discord.Embed(
+                description=desc,
+                color=0x0058ff
+            )
+            await interaction.response.send_message(embed=embed, ephemeral=True)
 
         elif self.mode == "edit":
             await interaction.response.send_modal(
@@ -178,41 +184,32 @@ class StockPanelView(discord.ui.View):
             self.add_item(SendButton(self))
         else:
             self.add_item(StockProductSelect(self, self.mode))
-            self.add_item(BackToMenuButton(self))
+            self.add_item(SendButton(self))
 
     async def update_panel(self, interaction: discord.Interaction):
-        if self.mode == "main":
-            embed = discord.Embed(
-                title="Stock panel",
-                description=(
-                    "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
-                    "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
-                ),
-                color=0x0058ff
+        embed = discord.Embed(
+            title="Stock panel",
+            description=(
+                "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
+                "Once you have **made your selections**, please click the **\"Send\" button** to **update the message** in channel <#1543003779400732784>."
+            ),
+            color=0x0058ff
+        )
+        
+        display_products = self.temp_products if self.temp_products else self.products
+        if display_products:
+            embed.add_field(
+                name="\u200b",
+                value="<:box:1542297038283079770> **__Products__ :**",
+                inline=False
             )
-            display_products = self.temp_products if self.temp_products else self.products
-            if display_products:
-                embed.add_field(
-                    name="\u200b",
-                    value="<:box:1542297038283079770> **__Products__ :**",
-                    inline=False
-                )
-                names = [f"`{p['name']}`" for p in display_products]
-                prices = [f"`{p['price']} €`" for p in display_products]
-                qtys = [f"`{p['qty']}`" for p in display_products]
+            names = [f"`{p['name']}`" for p in display_products]
+            prices = [f"`{p['price']} €`" for p in display_products]
+            qtys = [f"`{p['qty']}`" for p in display_products]
 
-                embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
-                embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
-                embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
-        else:
-            embed = discord.Embed(
-                title="Stock panel",
-                description=(
-                    f"You are **currently** on the **{self.mode} product page** ! ✨\n\n"
-                    f"Select a product from the **selection menu** below to **{self.mode}** it."
-                ),
-                color=0x0058ff
-            )
+            embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
+            embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
+            embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
 
         embed.set_footer(
             text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
@@ -299,13 +296,20 @@ class SendButton(discord.ui.Button):
             self.view_instance.products.extend(self.view_instance.temp_products)
             self.view_instance.temp_products = []
 
+        self.view_instance.mode = "main"
+        self.view_instance.rebuild_items()
+
         await self.view_instance.sync_public_stock(interaction)
         await self.view_instance.update_panel(interaction)
         
+        success_embed = discord.Embed(
+            description="Stock successfully updated and sent!",
+            color=0x0058ff
+        )
         if not interaction.response.is_done():
-            await interaction.response.send_message("Stock successfully updated and sent!", ephemeral=True)
+            await interaction.response.send_message(embed=success_embed, ephemeral=True)
         else:
-            await interaction.followup.send("Stock successfully updated and sent!", ephemeral=True)
+            await interaction.followup.send(embed=success_embed, ephemeral=True)
 
 class Stock(commands.Cog):
     def __init__(self, bot):
