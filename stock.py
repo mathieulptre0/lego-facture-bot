@@ -123,7 +123,7 @@ class Stock(commands.Cog):
     def __init__(self, bot):
         self.bot = bot
 
-    @app_commands.command(name="stock", description="Affiche le panneau de gestion du stock")
+    @app_commands.command(name="stock", description="Affiche le panneau de gestion du stock et l'inventaire")
     async def stock(self, interaction: discord.Interaction):
         role_id = 1542206470970671214
         if not any(role.id == role_id for role in interaction.user.roles):
@@ -136,11 +136,26 @@ class Stock(commands.Cog):
             return
 
         panel_channel = interaction.guild.get_channel(1543006150470008933)
-        if not panel_channel:
-            await interaction.response.send_message("Salon de panel introuvable.", ephemeral=True)
+        stock_channel = interaction.guild.get_channel(1543003779400732784)
+        
+        if not panel_channel or not stock_channel:
+            await interaction.response.send_message("L'un des salons requis est introuvable.", ephemeral=True)
             return
 
-        embed = discord.Embed(
+        # 1. Envoi de l'embed principal dans le salon stock (1543003779400732784)
+        public_embed = discord.Embed(
+            title="<:stock:1543004710427041932> Stock",
+            description=(
+                "Here is our **shop's current inventory**; the **stock updates automatically** whenever items become available !\n\n"
+                "If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**."
+            ),
+            color=0x0058ff
+        )
+        public_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
+        await stock_channel.send(embed=public_embed)
+
+        # 2. Envoi du panneau de gestion dans le salon admin (1543006150470008933)
+        panel_embed = discord.Embed(
             title="Stock panel",
             description=(
                 "You can **create, edit, or delete** one or more products by clicking the **selection menu** located **below** this product.\n\n"
@@ -148,11 +163,12 @@ class Stock(commands.Cog):
             ),
             color=0x0058ff
         )
-        embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
+        panel_embed.set_footer(text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}")
 
         view = StockPanelView(self.bot)
-        await panel_channel.send(embed=embed, view=view)
-        await interaction.response.send_message("Le panneau de stock a bien été envoyé.", ephemeral=True)
+        await panel_channel.send(embed=panel_embed, view=view)
+        
+        await interaction.response.send_message("Les embeds de stock et de panel ont bien été initialisés.", ephemeral=True)
 
 async def setup(bot):
     await bot.add_cog(Stock(bot))
