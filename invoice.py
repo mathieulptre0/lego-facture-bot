@@ -3,7 +3,6 @@ import json
 import os
 import random
 import string
-import aiohttp
 import discord
 from discord import app_commands
 from discord.ext import commands
@@ -20,69 +19,6 @@ COMPLETION_ROLE_ID = 1542853152905232504
 
 # Dictionnaire global pour stocker les factures en attente de paiement
 PENDING_INVOICES = {}
-
-# --- FONCTIONS UTILES PAYPAL API ---
-async def get_paypal_access_token():
-    client_id = os.environ.get("PAYPAL_CLIENT_ID")
-    client_secret = os.environ.get("PAYPAL_CLIENT_SECRET")
-    api_url = os.environ.get("PAYPAL_API_URL", "https://api-m.sandbox.paypal.com")
-    
-    if not client_id or not client_secret:
-        print("[PayPal API Error] Variables d'environnement manquantes !")
-        return None
-
-    url = f"{api_url}/v1/oauth2/token"
-    auth = aiohttp.BasicAuth(client_id, client_secret)
-    headers = {"Accept": "application/json", "Accept-Language": "en_US"}
-    data = {"grant_type": "client_credentials"}
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, auth=auth, data=data, headers=headers) as resp:
-            if resp.status == 200:
-                json_resp = await resp.json()
-                return json_resp.get("access_token")
-            else:
-                print(f"[PayPal API Error] Echec Token: {await resp.text()}")
-                return None
-
-async def create_paypal_order(amount, description):
-    token = await get_paypal_access_token()
-    if not token:
-        return None, None
-
-    api_url = os.environ.get("PAYPAL_API_URL", "https://api-m.sandbox.paypal.com")
-    url = f"{api_url}/v2/checkout/orders"
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {token}"
-    }
-    payload = {
-        "intent": "CAPTURE",
-        "purchase_units": [
-            {
-                "description": description[:127],
-                "amount": {
-                    "currency_code": "EUR",
-                    "value": f"{amount:.2f}"
-                }
-            }
-        ]
-    }
-
-    async with aiohttp.ClientSession() as session:
-        async with session.post(url, json=payload, headers=headers) as resp:
-            if resp.status in (200, 201):
-                json_resp = await resp.json()
-                order_id = json_resp.get("id")
-                approve_url = None
-                for link in json_resp.get("links", []):
-                    if link.get("rel") == "approve":
-                        approve_url = link.get("href")
-                        break
-                return order_id, approve_url
-            else:
-                print(f"[PayPal API Error] Echec Order: {await resp.text()}")
-                return None, None
 
 
 class AddProductModal(discord.ui.Modal, title="Add a product"):
@@ -175,6 +111,7 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         code_entered = self.coupon_code.value.strip().upper()
         target_user_id = self.next_button_view.parent_view.target_user.id
         
+        # Récupération des coupons de l'utilisateur directement depuis database.py
         user_coupons = load_user_coupons(target_user_id)
         
         matched_coupon = None
@@ -183,10 +120,13 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
                 matched_coupon = coupon
                 break
 
+        # Vérification : le code existe-t-il ET appartient-il bien au bon utilisateur ?
         if not matched_coupon:
             error_embed = discord.Embed(
                 title="**<:info:1542297839026053190> Invalid coupon**",
-                description="The **discount code** you entered is **invalid** or does **not belong** to your **Discord account**.",
+                description=(
+                    "The **discount code** you entered is **invalid** or does **not belong** to your **Discord account**."
+                ),
                 color=discord.Color.from_str("#ff0000"),
             )
             if self.next_button_view.parent_view.bot_avatar:
@@ -202,6 +142,7 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         self.next_button_view.applied_discount = percentage
         self.next_button_view.applied_coupon_code = code_entered
 
+        # Suppression immédiate du coupon de la base de données dès qu'il est appliqué avec succès
         try:
             delete_user_coupon(target_user_id, code_entered)
         except Exception as e:
@@ -212,8 +153,17 @@ class DiscountModal(discord.ui.Modal, title="Apply Discount Coupon"):
         if discounted_total < 0:
             discounted_total = 0.0
 
-        new_total_str = f"{discounted_total:.2f}".rstrip("0").rstrip(".") if not discounted_total.is_integer() else str(int(discounted_total))
+        if discounted_total.is_integer():
+            new_total_str = str(int(discounted_total))
+        else:
+            new_total_str = f"{discounted_total:.2f}".rstrip("0").rstrip(".")
+
         self.next_button_view.total_str = new_total_str
+
+        if self.next_button_view.payment_desc in PENDING_INVOICES:
+            PENDING_INVOICES[self.next_button_view.payment_desc]["total"] = float(discounted_total)
+            PENDING_INVOICES[self.next_button_view.payment_desc]["coupon_code"] = code_entered
+            PENDING_INVOICES[self.next_button_view.payment_desc]["user_id"] = target_user_id
 
         embed = interaction.message.embeds[0]
         
@@ -345,10 +295,23 @@ class InvoiceSelectMenu(discord.ui.Select):
                         description="There are **no products** added to the **invoice** yet.",
                         color=discord.Color.from_str("#ff0000"),
                     )
-                    return await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                    if self.parent_view.bot_avatar:
+                        error_embed.set_footer(
+                            text=self.parent_view.footer_text,
+                            icon_url=self.parent_view.bot_avatar,
+                        )
+                    else:
+                        error_embed.set_footer(
+                            text=self.parent_view.footer_text
+                        )
+                    return await interaction.response.send_message(
+                        embed=error_embed, ephemeral=True
+                    )
                 self.parent_view.mode = "remove_list"
                 self.parent_view.refresh_components()
-                await interaction.response.edit_message(view=self.parent_view)
+                await interaction.response.edit_message(
+                    view=self.parent_view
+                )
             elif val == "edit_prod":
                 if not self.parent_view.products:
                     error_embed = discord.Embed(
@@ -356,28 +319,49 @@ class InvoiceSelectMenu(discord.ui.Select):
                         description="There are **no products** added to the **invoice** yet.",
                         color=discord.Color.from_str("#ff0000"),
                     )
-                    return await interaction.response.send_message(embed=error_embed, ephemeral=True)
+                    if self.parent_view.bot_avatar:
+                        error_embed.set_footer(
+                            text=self.parent_view.footer_text,
+                            icon_url=self.parent_view.bot_avatar,
+                        )
+                    else:
+                        error_embed.set_footer(
+                            text=self.parent_view.footer_text
+                        )
+                    return await interaction.response.send_message(
+                        embed=error_embed, ephemeral=True
+                    )
                 self.parent_view.mode = "edit_list"
                 self.parent_view.refresh_components()
-                await interaction.response.edit_message(view=self.parent_view)
+                await interaction.response.edit_message(
+                    view=self.parent_view
+                )
         elif self.mode == "remove_list":
             if val == "back_to_menu":
                 self.parent_view.mode = "main"
                 self.parent_view.refresh_components()
-                await interaction.response.edit_message(view=self.parent_view)
+                await interaction.response.edit_message(
+                    view=self.parent_view
+                )
             elif val.startswith("rm_"):
                 idx = int(val.split("_")[1])
                 if idx < len(self.parent_view.products):
                     self.parent_view.products.pop(idx)
                 
-                self.parent_view.mode = "main" if not self.parent_view.products else "remove_list"
+                if not self.parent_view.products:
+                    self.parent_view.mode = "main"
+                else:
+                    self.parent_view.mode = "remove_list"
+                
                 self.parent_view.refresh_components()
                 await self.parent_view.update_message(interaction)
         elif self.mode == "edit_list":
             if val == "back_to_menu":
                 self.parent_view.mode = "main"
                 self.parent_view.refresh_components()
-                await interaction.response.edit_message(view=self.parent_view)
+                await interaction.response.edit_message(
+                    view=self.parent_view
+                )
             elif val.startswith("ed_"):
                 idx = int(val.split("_")[1])
                 modal = EditProductModal(self.parent_view, idx)
@@ -387,9 +371,13 @@ class InvoiceSelectMenu(discord.ui.Select):
                 chan_id = int(val.split("_")[1])
                 target_chan = interaction.guild.get_channel(chan_id)
                 if target_chan:
-                    await self.parent_view.send_final_invoice(interaction, target_chan)
+                    await self.parent_view.send_final_invoice(
+                        interaction, target_chan
+                    )
                 else:
-                    await interaction.response.send_message("❌ Salon introuvable.", ephemeral=True)
+                    await interaction.response.send_message(
+                        "❌ Salon introuvable.", ephemeral=True
+                    )
 
 
 class InvoiceView(discord.ui.View):
@@ -427,15 +415,30 @@ class InvoiceView(discord.ui.View):
         )
 
         if self.products:
-            names_col, prices_col, qtys_col = [], [], []
+            names_col = []
+            prices_col = []
+            qtys_col = []
+
             for p in self.products:
                 names_col.append(f"`{p['name']}`")
                 prices_col.append(f"`{p['price']} €`")
                 qtys_col.append(f"`{p['quantity']}`")
 
-            embed.add_field(name="<:box:1542297038283079770> Product", value="\n".join(names_col), inline=True)
-            embed.add_field(name="<:price:1542297290411081778> Price", value="\n".join(prices_col), inline=True)
-            embed.add_field(name="<:quantity:1542640024623783946> Quantity", value="\n".join(qtys_col), inline=True)
+            embed.add_field(
+                name="<:box:1542297038283079770> Product",
+                value="\n".join(names_col),
+                inline=True,
+            )
+            embed.add_field(
+                name="<:price:1542297290411081778> Price",
+                value="\n".join(prices_col),
+                inline=True,
+            )
+            embed.add_field(
+                name="<:quantity:1542640024623783946> Quantity",
+                value="\n".join(qtys_col),
+                inline=True,
+            )
 
         if self.bot_avatar:
             embed.set_footer(text=self.footer_text, icon_url=self.bot_avatar)
@@ -449,58 +452,86 @@ class InvoiceView(discord.ui.View):
         self.refresh_components()
         embed = self.build_embed()
         if interaction.response.is_done():
-            await interaction.edit_original_response(embed=embed, view=self)
+            await interaction.edit_original_response(
+                embed=embed, view=self
+            )
         else:
             await interaction.response.edit_message(embed=embed, view=self)
 
     async def send_final_invoice(self, interaction: discord.Interaction, target_chan):
-        total = 0.0
-        names_col, prices_col, qtys_col = [], [], []
+        total = 0
+        names_col = []
+        prices_col = []
+        qtys_col = []
 
         for p in self.products:
             names_col.append(f"`{p['name']}`")
             prices_col.append(f"`{p['price']} €`")
             qtys_col.append(f"`{p['quantity']}`")
             try:
-                clean_price = p["price"].replace("€", "").replace("$", "").replace(",", ".").strip()
+                clean_price = (
+                    p["price"]
+                    .replace("€", "")
+                    .replace("$", "")
+                    .replace(",", ".")
+                    .strip()
+                )
                 unit_price = float(clean_price)
                 total += unit_price
             except Exception:
                 pass
 
-        total_str = f"{total:.2f}".rstrip("0").rstrip(".") if not total.is_integer() else str(int(total))
+        if total.is_integer():
+            total_str = str(int(total))
+        else:
+            total_str = str(total)
+
         random_suffix = "".join(random.choices(string.ascii_uppercase + string.digits, k=5))
         payment_desc = f"Order INV-{random_suffix}"
 
         final_embed = discord.Embed(
             title="**<:invoice:1542562223891812413> New invoice created !**",
             description=(
-                f"A **staff member** has created an **invoice** for "
-                f"{self.target_user.mention} regarding an **order** they placed with us.\n\n"
-                f"<:invoice_details:1542640219495604254> **__Invoice details__ :**"
+                f"A **staff member** has created an **invoice** for"
+                f" {self.target_user.mention} regarding an **order** they"
+                " placed with us.\n\n<:invoice_details:1542640219495604254> **__Invoice details__ :**"
             ),
             color=discord.Color.from_str("#0058ff"),
         )
 
         if self.products:
-            final_embed.add_field(name="<:box:1542297038283079770> Product", value="\n".join(names_col), inline=True)
-            final_embed.add_field(name="<:price:1542297290411081778> Price", value="\n".join(prices_col), inline=True)
-            final_embed.add_field(name="<:quantity:1542640024623783946> Quantity", value="\n".join(qtys_col), inline=True)
+            final_embed.add_field(
+                name="<:box:1542297038283079770> Product",
+                value="\n".join(names_col),
+                inline=True,
+            )
+            final_embed.add_field(
+                name="<:price:1542297290411081778> Price",
+                value="\n".join(prices_col),
+                inline=True,
+            )
+            final_embed.add_field(
+                name="<:quantity:1542640024623783946> Quantity",
+                value="\n".join(qtys_col),
+                inline=True,
+            )
 
         final_embed.add_field(
             name="\u200b",
             value=(
                 f"The **total price** of your **order** is :\n\n"
                 f"```{total_str} €```\n\n"
-                f"<:info:1542297839026053190> Please **check carefully** "
-                "for any **errors**; if you find a **mistake**, please let "
-                "us know so we can **issue a new one**."
+                f"<:info:1542297839026053190> Please **check carefully**"
+                " for any **errors**; if you find a **mistake**, please let"
+                " us know so we can **issue a new one**."
             ),
             inline=False,
         )
 
         if self.bot_avatar:
-            final_embed.set_footer(text=self.footer_text, icon_url=self.bot_avatar)
+            final_embed.set_footer(
+                text=self.footer_text, icon_url=self.bot_avatar
+            )
         else:
             final_embed.set_footer(text=self.footer_text)
 
@@ -530,14 +561,6 @@ class InvoiceView(discord.ui.View):
                 emoji="<:check2:1542297108638335066>",
             )
             async def next_callback(self, interaction: discord.Interaction, button: discord.ui.Button):
-                await interaction.response.defer(ephemeral=False)
-                
-                amount = float(self.total_str.replace(",", "."))
-                order_id, approve_url = await create_paypal_order(amount, self.payment_desc)
-
-                if not approve_url:
-                    return await interaction.followup.send("❌ Impossible de générer le lien de paiement PayPal. Vérifiez la configuration du bot.", ephemeral=True)
-
                 payment_embed = discord.Embed(
                     title="**<:card:1542297063331729529> Payment process**",
                     description=(
@@ -548,7 +571,7 @@ class InvoiceView(discord.ui.View):
                         "<:cart:1542297234404802570> **__Payment Information__ :**\n\n"
                         "**Invoice Total:**\n"
                         f"```{self.total_str} €```\n\n"
-                        "**Order Reference:**\n"
+                        "**Payment Description (to be entered directly into PayPal):**\n"
                         f"```{self.payment_desc}```\n\n"
                         "<:info:1542297839026053190> If you encounter any **issues** with the **payment**, "
                         "or if our **automated system fails** to detect your **payment**, please **let us know**."
@@ -564,19 +587,19 @@ class InvoiceView(discord.ui.View):
                     payment_embed.set_footer(text=self.parent_view.footer_text)
 
                 class PayButtonView(discord.ui.View):
-                    def __init__(self, pay_url):
+                    def __init__(self):
                         super().__init__(timeout=None)
                         self.add_item(
                             discord.ui.Button(
                                 label="Complete your order",
                                 style=discord.ButtonStyle.link,
-                                url=pay_url,
+                                url="https://paypal.me/leazyttv",
                                 emoji="<:card:1542297063331729529>",
                             )
                         )
 
-                await interaction.edit_original_response(
-                    embed=payment_embed, view=PayButtonView(approve_url)
+                await interaction.response.edit_message(
+                    embed=payment_embed, view=PayButtonView()
                 )
 
         sent_msg = await target_chan.send(
@@ -616,7 +639,15 @@ class SendInvoiceButton(discord.ui.Button):
                 description="There are **no products** added to the **invoice** yet.",
                 color=discord.Color.from_str("#ff0000"),
             )
-            return await interaction.response.send_message(embed=error_embed, ephemeral=True)
+            if view.bot_avatar:
+                error_embed.set_footer(
+                    text=view.footer_text, icon_url=view.bot_avatar
+                )
+            else:
+                error_embed.set_footer(text=view.footer_text)
+            return await interaction.response.send_message(
+                embed=error_embed, ephemeral=True
+            )
         view.sending_mode = True
         view.refresh_components()
         await interaction.response.edit_message(view=view)
@@ -649,7 +680,6 @@ class InvoiceCog(commands.Cog):
     async def start_web_server(self):
         app = web.Application()
         app.router.add_post('/ipn', self.handle_ipn)
-        app.router.add_post('/webhook', self.handle_webhook)
         app.router.add_get('/', self.handle_index)
         
         runner = web.AppRunner(app)
@@ -658,28 +688,12 @@ class InvoiceCog(commands.Cog):
         site = web.TCPSite(runner, '0.0.0.0', port)
         try:
             await site.start()
-            print(f"[PayPal Web Server] Running successfully on port {port}")
+            print(f"[IPN Web Server] Running successfully on port {port}")
         except Exception as e:
-            print(f"[PayPal Web Server] Failed to start: {e}")
+            print(f"[IPN Web Server] Failed to start: {e}")
 
     async def handle_index(self, request):
-        return web.Response(text="PayPal API Server is running!")
-
-    async def handle_webhook(self, request):
-        try:
-            data = await request.json()
-            event_type = data.get("event_type")
-            if event_type == "CHECKOUT.ORDER.APPROVED":
-                resource = data.get("resource", {})
-                purchase_units = resource.get("purchase_units", [])
-                if purchase_units:
-                    description = purchase_units[0].get("description")
-                    if description in PENDING_INVOICES:
-                        await self.complete_order(description)
-            return web.Response(status=200, text="Webhook Handled")
-        except Exception as e:
-            print(f"[Webhook Error] {e}")
-            return web.Response(status=500, text="Error processing webhook")
+        return web.Response(text="Receipt Tool Bot IPN Server is running!")
 
     async def handle_ipn(self, request):
         try:
@@ -690,41 +704,56 @@ class InvoiceCog(commands.Cog):
             except Exception:
                 data = {}
 
+        # Capture de la remarque/mémo PayPal.me en plus des autres champs classiques
         payment_desc = (
             data.get("memo")
             or data.get("note")
             or data.get("description") 
             or data.get("custom") 
-            or data.get("item_name")
+            or data.get("item_name") 
+            or data.get("payment_status")
         )
         
-        if payment_desc and payment_desc in PENDING_INVOICES:
-            await self.complete_order(payment_desc)
-            return web.Response(status=200, text="IPN processed successfully")
+        if not payment_desc or payment_desc not in PENDING_INVOICES:
+            return web.Response(status=404, text="Invoice not found or invalid description")
 
-        return web.Response(status=404, text="Invoice not found")
+        invoice_info = PENDING_INVOICES[payment_desc]
+        expected_total = invoice_info["total"]
 
-    async def complete_order(self, payment_desc):
-        if payment_desc not in PENDING_INVOICES:
-            return
+        raw_gross = data.get("mc_gross") or data.get("payment_gross") or "0"
+        try:
+            paid_amount = float(str(raw_gross).replace(",", "."))
+        except Exception:
+            paid_amount = 0.0
 
-        invoice_info = PENDING_INVOICES.pop(payment_desc)
+        if paid_amount < expected_total:
+            return web.Response(status=400, text=f"Insufficient amount: expected {expected_total}, got {paid_amount}")
+
         target_user_id = invoice_info.get("user_id")
+
+        # Nettoyage de la facture en attente
+        PENDING_INVOICES.pop(payment_desc)
 
         try:
             channel = self.bot.get_channel(invoice_info["channel_id"])
             if not channel:
                 channel = await self.bot.fetch_channel(invoice_info["channel_id"])
             
+            # AJOUT DU RÔLE À L'UTILISATEUR ASSOCIÉ
             if channel and channel.guild:
                 try:
-                    member = channel.guild.get_member(target_user_id) or await channel.guild.fetch_member(target_user_id)
+                    member = channel.guild.get_member(target_user_id)
+                    if not member:
+                        member = await channel.guild.fetch_member(target_user_id)
+                    
                     role_to_add = channel.guild.get_role(COMPLETION_ROLE_ID)
                     if member and role_to_add:
-                        await member.add_roles(role_to_add, reason=f"Order {payment_desc} paid.")
+                        await member.add_roles(role_to_add, reason=f"Order {payment_desc} successfully paid.")
+                        print(f"[IPN] Role {COMPLETION_ROLE_ID} successfully assigned to user {target_user_id}.")
                 except Exception as role_err:
-                    print(f"[Error Role] {role_err}")
+                    print(f"[IPN Error] Could not assign role to user: {role_err}")
 
+            # MISE À JOUR DE L'EMBED DISCORD
             message = await channel.fetch_message(invoice_info["message_id"])
             
             completed_embed = discord.Embed(
@@ -743,9 +772,13 @@ class InvoiceCog(commands.Cog):
 
             await message.edit(embed=completed_embed, view=None)
         except Exception as e:
-            print(f"[Error Complete Order] {e}")
+            print(f"[IPN Error] Could not update Discord message: {e}")
 
-    @app_commands.command(name="invoice", description="Manage and create invoices.")
+        return web.Response(status=200, text="IPN processed successfully")
+
+    @app_commands.command(
+        name="invoice", description="Manage and create invoices."
+    )
     @app_commands.describe(user="The discord user to create the invoice for")
     async def invoice(self, interaction: discord.Interaction, user: discord.User):
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
@@ -757,14 +790,25 @@ class InvoiceCog(commands.Cog):
         if ALLOWED_ROLE_ID not in user_role_ids:
             embed_refuse = discord.Embed(
                 title="**<:info:1542297839026053190> Access denied**",
-                description="You do not have the required **permissions** to use this command.",
+                description=(
+                    "You do not have the required **permissions** to use"
+                    " this **command**. This **action** is restricted to **staff**."
+                ),
                 color=discord.Color.from_str("#ff0000"),
             )
-            return await interaction.response.send_message(embed=embed_refuse, ephemeral=True)
+            if bot_avatar:
+                embed_refuse.set_footer(text=footer_text, icon_url=bot_avatar)
+            else:
+                embed_refuse.set_footer(text=footer_text)
+            return await interaction.response.send_message(
+                embed=embed_refuse, ephemeral=True
+            )
 
         view = InvoiceView(interaction, user, footer_text, bot_avatar)
         embed = view.build_embed()
-        await interaction.response.send_message(embed=embed, view=view, ephemeral=True)
+        await interaction.response.send_message(
+            embed=embed, view=view, ephemeral=True
+        )
 
 
 async def setup(bot):
