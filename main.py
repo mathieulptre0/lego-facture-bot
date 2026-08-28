@@ -84,7 +84,7 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   )
 
   async def on_submit(self, interaction: discord.Interaction):
-    # 1. On diffère la réponse pour valider le modal instantanément auprès de Discord
+    # 1. On diffère la réponse pour valider le modal instantanément
     await interaction.response.defer(ephemeral=True)
 
     user_id = interaction.user.id
@@ -97,9 +97,10 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      return await interaction.followup.send(embed=embed_err, ephemeral=True)
+      await interaction.followup.send(embed=embed_err, ephemeral=True)
+      return
 
-    # 2. Envoi de l'embed d'attente bleu avec les mots clés en gras
+    # 2. Envoi de l'embed d'attente bleu
     embed_loading = discord.Embed(
         title="⌛ **Generating receipt...**",
         description=(
@@ -125,7 +126,8 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      return await loading_message.edit(embed=embed_bad_price)
+      await loading_message.edit(embed=embed_bad_price)
+      return
 
     date_str_brute = self.purchase_date.value.strip()
     try:
@@ -138,7 +140,8 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           ),
           color=discord.Color.red(),
       )
-      return await loading_message.edit(embed=embed_bad_date)
+      await loading_message.edit(embed=embed_bad_date)
+      return
 
     texte_date_valeur = dt_obj.strftime("%d/%m/%Y %H:%M:%S")
     jour_clean = str(dt_obj.day)
@@ -171,9 +174,10 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
           description="❌ An error occurred while generating the PDF receipt.",
           color=discord.Color.red(),
       )
-      return await loading_message.edit(embed=embed_gen_err)
+      await loading_message.edit(embed=embed_gen_err)
+      return
 
-    # 4. Préparation du résultat final et du bouton de téléchargement du PDF
+    # 4. Affichage du succès avec le fichier et le bouton
     file_to_send = discord.File(pdf_path, filename="receipt.pdf")
     embed_succes = discord.Embed(
         title="<:check:1542642100938477680> Receipt successfully created !",
@@ -212,7 +216,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
 
     view = DownloadView(pdf_path)
-    # 5. Modification de l'embed d'attente pour afficher le succès et joindre le fichier PDF
     await loading_message.edit(
         embed=embed_succes, view=view, attachments=[file_to_send]
     )
