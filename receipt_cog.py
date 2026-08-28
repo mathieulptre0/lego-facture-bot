@@ -55,18 +55,21 @@ def deduire_coin(user_id: int):
     except Exception:
       data = {}
 
-  current = data.get(str(user_id), 0)
-  if isinstance(current, dict):
-    current = current.get("coins", 0)
+  str_user_id = str(user_id)
+  if str_user_id not in data:
+    data[str_user_id] = {"coins": 0}
 
-  current = int(current)
+  if not isinstance(data[str_user_id], dict):
+    data[str_user_id] = {"coins": int(data[str_user_id])}
+
+  current = data[str_user_id].get("coins", 0)
   if current > 0:
-    data[str(user_id)] = current - 1
+    data[str_user_id]["coins"] = current - 1
   else:
-    data[str(user_id)] = 0
+    data[str_user_id]["coins"] = 0
 
   with open(COINS_DB_PATH, "w", encoding="utf-8") as f:
-    json.dump(data, f, indent=4)
+    json.dump(data, f, indent=4, ensure_ascii=False)
 
 
 class ReceiptModal(ui.Modal, title="Receipt Creation"):
@@ -92,7 +95,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
   async def on_submit(self, interaction: discord.Interaction):
     await interaction.response.defer(ephemeral=True)
 
-    # Récupération sécurisée du bot pour le footer
     bot_user = interaction.client.user
     bot_name = bot_user.name if bot_user else "Receipt Tool"
     bot_avatar = bot_user.display_avatar.url if bot_user else None
@@ -190,7 +192,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         )
         return await loading_message.edit(embed=embed_gen_err)
 
-      # Construction de l'embed de succès partagé
       embed_succes = discord.Embed(
           title="<:check:1542642100938477680> Receipt successfully created !",
           description=(
@@ -210,7 +211,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
       else:
         embed_succes.set_footer(text=footer_text)
 
-      # 1. Envoi dans le salon de logs avec le fichier en premier
       salon_archives = interaction.client.get_channel(SALON_ARCHIVE_TICKETS_ID)
       attachment_url = None
       if salon_archives:
@@ -226,7 +226,6 @@ class ReceiptModal(ui.Modal, title="Receipt Creation"):
         if archive_msg.attachments:
           attachment_url = archive_msg.attachments[0].url
 
-      # 2. Affichage à l'utilisateur avec le bouton de téléchargement direct
       if attachment_url:
 
         class DownloadLinkView(ui.View):
@@ -299,7 +298,6 @@ class ReceiptCog(commands.Cog):
           ephemeral=True,
       )
 
-    # Récupération sécurisée du bot pour le footer principal
     bot_user = self.bot.user or interaction.client.user
     bot_name = bot_user.name if bot_user else "Receipt Tool"
     bot_avatar = bot_user.display_avatar.url if bot_user else None
