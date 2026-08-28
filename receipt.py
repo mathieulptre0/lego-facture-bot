@@ -1,4 +1,5 @@
 import os
+from datetime import datetime
 import discord
 from discord.ext import commands
 import pymupdf as fitz
@@ -1044,15 +1045,28 @@ class TicketCog(commands.Cog):
       code_avis: str,
       tva: str,
   ):
+    bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
+    bot_name = self.bot.user.name if self.bot.user else "Bot"
+    now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+    footer_text = f"{bot_name} | {now_str}"
+
     user_id = interaction.user.id
 
     solde = self.get_user_coins(user_id)
     if solde < 1:
-      await interaction.response.send_message(
-          "❌ Vous n'avez pas assez de coins (1 coin requis) pour générer ce"
-          " ticket.",
-          ephemeral=True,
+      embed_refuse = discord.Embed(
+          title="❌ Solde insuffisant",
+          description=(
+              "Vous n'avez pas assez de coins (1 coin requis) pour générer ce"
+              " ticket."
+          ),
+          color=discord.Color.from_str("#ff0000"),
       )
+      if bot_avatar:
+        embed_refuse.set_footer(text=footer_text, icon_url=bot_avatar)
+      else:
+        embed_refuse.set_footer(text=footer_text)
+      await interaction.response.send_message(embed=embed_refuse, ephemeral=True)
       return
 
     self.remove_user_coins(user_id, 1)
@@ -1076,6 +1090,10 @@ class TicketCog(commands.Cog):
         ),
         color=discord.Color.blue(),
     )
+    if bot_avatar:
+      embed.set_footer(text=footer_text, icon_url=bot_avatar)
+    else:
+      embed.set_footer(text=footer_text)
 
     view = TicketDownloadView(pdf_path)
 
