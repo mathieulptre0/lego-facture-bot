@@ -42,10 +42,7 @@ class StockProductModal(discord.ui.Modal):
         if self.action_type == "add":
             self.view_instance.temp_products.append({"name": name, "price": price, "qty": qty})
         elif self.action_type == "edit" and self.product_index is not None:
-            if self.product_index in self.view_instance.pending_edits:
-                self.view_instance.pending_edits[self.product_index] = {"name": name, "price": price, "qty": qty}
-            else:
-                self.view_instance.pending_edits[self.product_index] = {"name": name, "price": price, "qty": qty}
+            self.view_instance.pending_edits[self.product_index] = {"name": name, "price": price, "qty": qty}
         
         self.view_instance.mode = "main"
         self.view_instance.rebuild_items()
@@ -57,7 +54,7 @@ class StockProductSelect(discord.ui.Select):
         self.mode = mode
         options = []
         
-        all_products = self.view_instance.temp_products + self.view_instance.products
+        all_products = self.view_instance.products
         
         for index, p in enumerate(all_products):
             if mode == "remove" and index in self.view_instance.pending_removes:
@@ -94,7 +91,7 @@ class StockProductSelect(discord.ui.Select):
             return
 
         index = int(self.values[0])
-        all_products = self.view_instance.temp_products + self.view_instance.products
+        all_products = self.view_instance.products
         p = self.view_instance.pending_edits.get(index, all_products[index])
 
         if self.mode == "remove":
@@ -105,7 +102,7 @@ class StockProductSelect(discord.ui.Select):
             await self.view_instance.update_panel(interaction)
 
             embed = discord.Embed(
-                description=f"Product `{p['name']}` marked for removal. Click **Send** to confirm.",
+                description=f"Product `{p['name']}` marked for removal in the panel. Click **Send** to apply changes to the stock channel.",
                 color=0x0058ff
             )
             await interaction.response.send_message(embed=embed, ephemeral=True)
@@ -134,7 +131,7 @@ class StockSelect(discord.ui.Select):
 
     async def callback(self, interaction: discord.Interaction):
         val = self.values[0]
-        total_products = len(self.view_instance.temp_products) + len(self.view_instance.products)
+        total_products = len(self.view_instance.products)
 
         if "Add" in val:
             await interaction.response.send_modal(StockProductModal(self.view_instance, "add"))
@@ -163,11 +160,11 @@ class StockSelect(discord.ui.Select):
         await interaction.response.defer()
 
 class StockPanelView(discord.ui.View):
-    def __init__(self, bot, stock_message_id=None):
+    def __init__(self, bot, stock_message_id=None, initial_products=None):
         super().__init__(timeout=None)
         self.bot = bot
+        self.products = initial_products if initial_products else []
         self.temp_products = []
-        self.products = []
         self.pending_removes = []
         self.pending_edits = {}
         self.stock_message_id = stock_message_id
@@ -183,6 +180,21 @@ class StockPanelView(discord.ui.View):
             self.add_item(StockProductSelect(self, self.mode))
             self.add_item(SendButton(self))
 
+    def get_preview_products(self):
+        simulated = [dict(p) for p in self.products]
+        
+        for idx, new_data in self.pending_edits.items():
+            if idx < len(simulated):
+                simulated[idx] = new_data
+
+        simulated.extend(self.temp_products)
+
+        for idx in sorted(self.pending_removes, reverse=True):
+            if idx < len(simulated):
+                simulated.pop(idx)
+
+        return simulated
+
     async def update_panel(self, interaction: discord.Interaction):
         embed = discord.Embed(
             title="Stock panel",
@@ -193,29 +205,20 @@ class StockPanelView(discord.ui.View):
             color=0x0058ff
         )
         
-        display_products = self.temp_products if self.temp_products else self.products
+        display_products = self.get_preview_products()
         if display_products:
             embed.add_field(
                 name="\u200b",
                 value="<:box:1542297038283079770> **__Products__ :**",
                 inline=False
             )
-            names = []
-            prices = []
-            qtys = []
+            names = [f"`{p['name']}`" for p in display_products]
+            prices = [f"`{p['price']} €`" for p in display_products]
+            qtys = [f"`{p['qty']}`" for p in display_products]
 
-            for idx, p in enumerate(display_products):
-                if idx in self.pending_removes:
-                    continue
-                current_p = self.pending_edits.get(idx, p)
-                names.append(f"`{current_p['name']}`")
-                prices.append(f"`{current_p['price']} €`")
-                qtys.append(f"`{current_p['qty']}`")
-
-            if names:
-                embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
-                embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
-                embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+            embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
+            embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
+            embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
 
         embed.set_footer(
             text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
@@ -239,12 +242,16 @@ class StockPanelView(discord.ui.View):
             title="<:stock:1543004710427041932> Stock",
             description=(
                 "Here is our **shop's current inventory**; the **stock updates automatically** whenever items become available !\n\n"
-                "<:box:1542297038283079770> **__Current stock__ :**"
+                "If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**."
             ),
             color=0x0058ff
         )
         
         if self.products:
+            public_embed.description = (
+                "Here is our **shop's current inventory**; the **stock updates automatically** whenever items become available !\n\n"
+                "<:box:1542297038283079770> **__Current stock__ :**"
+            )
             names = [f"`{p['name']}`" for p in self.products]
             prices = [f"`{p['price']} €`" for p in self.products]
             qtys = [f"`{p['qty']}`" for p in self.products]
@@ -252,21 +259,22 @@ class StockPanelView(discord.ui.View):
             public_embed.add_field(name="<:cart:1542297234404802570> Product", value="\n".join(names), inline=True)
             public_embed.add_field(name="<:euro:1542884660105715842> Price", value="\n".join(prices), inline=True)
             public_embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
+            
+            public_embed.add_field(
+                name="\u200b",
+                value=f"If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**.",
+                inline=False
+            )
 
-        public_embed.add_field(
-            name="\u200b",
-            value=f"If you are **interested in purchasing** our products, please **open a ticket** at <#1542238377837989888> in the **Purchase category**.",
-            inline=False
-        )
         public_embed.set_footer(
             text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
-            icon_url=self.bot.user.display_avatar.url
+            icon_url=interaction.client.user.display_avatar.url
         )
         
         if self.stock_message_id:
             try:
                 existing_msg = await target_channel.fetch_message(self.stock_message_id)
-                await existing_msg.edit(embed=public_embed)
+                await existing_msg.edit(embed=public_embed, view=None)
                 return
             except discord.NotFound:
                 pass
@@ -285,36 +293,13 @@ class SendButton(discord.ui.Button):
         )
 
     async def callback(self, interaction: discord.Interaction):
-        if not self.view_instance.temp_products and not self.view_instance.products:
-            error_embed = discord.Embed(
-                title="<:info:1542297188498153513> Error",
-                description="There are **no products** added to the **invoice** yet.",
-                color=discord.Color.red()
-            )
-            error_embed.set_footer(
-                text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
-                icon_url=interaction.client.user.display_avatar.url
-            )
-            await interaction.response.send_message(embed=error_embed, ephemeral=True)
-            return
-
-        # Apply pending edits
         for idx, new_data in self.view_instance.pending_edits.items():
-            if idx < len(self.view_instance.temp_products):
-                self.view_instance.temp_products[idx] = new_data
-            else:
-                real_index = idx - len(self.view_instance.temp_products)
-                if real_index < len(self.view_instance.products):
-                    self.view_instance.products[real_index] = new_data
+            if idx < len(self.view_instance.products):
+                self.view_instance.products[idx] = new_data
 
-        # Apply pending removals (sorted descending to avoid index shifting issues)
         for idx in sorted(self.view_instance.pending_removes, reverse=True):
-            if idx < len(self.view_instance.temp_products):
-                self.view_instance.temp_products.pop(idx)
-            else:
-                real_index = idx - len(self.view_instance.temp_products)
-                if real_index < len(self.view_instance.products):
-                    self.view_instance.products.pop(real_index)
+            if idx < len(self.view_instance.products):
+                self.view_instance.products.pop(idx)
 
         self.view_instance.pending_removes.clear()
         self.view_instance.pending_edits.clear()
