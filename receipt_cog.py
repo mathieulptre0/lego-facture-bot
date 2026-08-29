@@ -271,7 +271,7 @@ class ReceiptCog(commands.Cog):
             "You can **generate your receipt** using the **button below** this"
             " message. You will only need to provide a **few details** to"
             " **finalize the creation** of your receipt.\n\n"
-            "<:coin:1542297155660812348> **Cost to create a receipt :**\n"
+            "<:coin:1542297155660812348> **__Cost to create a receipt__ :**\n"
             "Generating a receipt will **deduct 1 coin** from your **personal"
             " balance**. If you **don't have any coins** in your account, you"
             f" can **open a ticket** at <#{SALON_TICKET_SUPPORT_ID}> to **order"
