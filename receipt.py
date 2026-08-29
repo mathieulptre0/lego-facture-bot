@@ -141,23 +141,48 @@ def generer_ticket_pdf(
     )
     x += font_bold.text_length(c, fontsize=15)
 
-  # Article dynamique
+  # ==========================================
+  # ARTICLE DYNAMIQUE & CALCUL DU DÉCALAGE
+  # ==========================================
   taille_article = 9.5
-  x, y = 2 / 25.4 * 72, (66 / 25.4 * 72) + taille_article
-  page.insert_font(fontname="CeraMediumArt1", fontfile=police_medium)
-  for c in nom_article:
-    page.insert_text(
-        (x, y),
-        c,
-        fontname="CeraMediumArt1",
-        fontsize=taille_article,
-        color=(0, 0, 0),
-    )
-    x += font_medium.text_length(c, fontsize=taille_article)
+  max_width_article_pt = 45 / 25.4 * 72  # Largeur max avant retour à la ligne
+  
+  mots = nom_article.split(" ")
+  lignes_article = []
+  ligne_courante = ""
+  
+  for mot in mots:
+    test_ligne = f"{ligne_courante} {mot}".strip() if ligne_courante else mot
+    largeur_test = sum(font_medium.text_length(c, fontsize=taille_article) for c in test_ligne)
+    if largeur_test <= max_width_article_pt:
+      ligne_courante = test_ligne
+    else:
+      if ligne_courante:
+        lignes_article.append(ligne_courante)
+      ligne_courante = mot
+  if ligne_courante:
+    lignes_article.append(ligne_courante)
+
+  start_y_article = 66 / 25.4 * 72
+  line_height_pt = 12  
+
+  page.insert_font(fontname="CeraMediumArtDyn", fontfile=police_medium)
+  for i, ligne in enumerate(lignes_article):
+    current_y = start_y_article + (i * line_height_pt)
+    x = 2 / 25.4 * 72
+    y = current_y + taille_article
+    for c in ligne:
+      page.insert_text(
+          (x, y), c, fontname="CeraMediumArtDyn", fontsize=taille_article, color=(0, 0, 0)
+      )
+      x += font_medium.text_length(c, fontsize=taille_article)
+
+  # Décalage global pour tout ce qui se trouve sous l'article
+  extra_offset = (len(lignes_article) - 1) * line_height_pt
 
   # Prix article dynamique
   right_pt_p1 = 72.5 / 25.4 * 72
-  top_pt_p1 = 66 / 25.4 * 72
+  top_pt_p1 = (66 / 25.4 * 72) + extra_offset
   page.insert_font(fontname="CeraMediumPrix1", fontfile=police_medium)
   largeur_totale_p1 = sum(
       font_medium.text_length(c, fontsize=9.5) for c in prix_article_str
@@ -175,7 +200,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.5)
 
   texte_tva_taux = "Récapitulatif TVA  Taux"
-  x, y = 2.2 / 25.4 * 72, (73.6 / 25.4 * 72) + 9.3
+  x, y = 2.2 / 25.4 * 72, (73.6 / 25.4 * 72) + 9.3 + extra_offset
   page.insert_font(fontname="CeraMediumTVA", fontfile=police_medium)
   for c in texte_tva_taux:
     page.insert_text(
@@ -188,7 +213,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.3)
 
   texte_tva_seul = "TVA"
-  x, y = 66.5 / 25.4 * 72, (73.7 / 25.4 * 72) + 9.2
+  x, y = 66.5 / 25.4 * 72, (73.7 / 25.4 * 72) + 9.2 + extra_offset
   page.insert_font(fontname="CeraMediumTVATexte", fontfile=police_medium)
   for c in texte_tva_seul:
     page.insert_text(
@@ -201,7 +226,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.2)
 
   texte_20 = "20.0%"
-  x, y = 30.8 / 25.4 * 72, (77.8 / 25.4 * 72) + 9.3
+  x, y = 30.8 / 25.4 * 72, (77.8 / 25.4 * 72) + 9.3 + extra_offset
   page.insert_font(fontname="CeraMedium20", fontfile=police_medium)
   for c in texte_20:
     page.insert_text(
@@ -210,7 +235,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.3)
 
   right_pt_1e_nouveau = 72.7 / 25.4 * 72
-  top_pt_1e_nouveau = 77.6 / 25.4 * 72
+  top_pt_1e_nouveau = (77.6 / 25.4 * 72) + extra_offset
   page.insert_font(
       fontname="CeraMediumMontantTVA2", fontfile=police_medium
   )
@@ -230,7 +255,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.5)
 
   texte_tot_label = "Total"
-  x, y = 30.8 / 25.4 * 72, (81.5 / 25.4 * 72) + 9.3
+  x, y = 30.8 / 25.4 * 72, (81.5 / 25.4 * 72) + 9.3 + extra_offset
   page.insert_font(
       fontname="CeraMediumTotalLabel", fontfile=police_medium
   )
@@ -245,7 +270,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.3)
 
   right_pt_1e = 72.6 / 25.4 * 72
-  top_pt_1e = 81.4 / 25.4 * 72
+  top_pt_1e = (81.4 / 25.4 * 72) + extra_offset
   page.insert_font(
       fontname="CeraMediumTotalMontant", fontfile=police_medium
   )
@@ -265,7 +290,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.5) - 0.02
 
   texte_nb = "Nombre d'articles : 1"
-  x, y = 2.2 / 25.4 * 72, (91 / 25.4 * 72) + 9.5
+  x, y = 2.2 / 25.4 * 72, (91 / 25.4 * 72) + 9.5 + extra_offset
   page.insert_font(
       fontname="CeraMediumNbArticles", fontfile=police_medium
   )
@@ -280,7 +305,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.5)
 
   texte_tap = "Total à payer"
-  x, y = 2.1 / 25.4 * 72, (96.5 / 25.4 * 72) + 11
+  x, y = 2.1 / 25.4 * 72, (96.5 / 25.4 * 72) + 11 + extra_offset
   page.insert_font(
       fontname="CeraBoldTotalPayer", fontfile=police_bold
   )
@@ -295,7 +320,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=11) - 0.1
 
   right_pt_tp = 73 / 25.4 * 72
-  top_pt_tp = 96.5 / 25.4 * 72
+  top_pt_tp = (96.5 / 25.4 * 72) + extra_offset
   page.insert_font(
       fontname="CeraBoldPrixPayer", fontfile=police_bold
   )
@@ -315,7 +340,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=11)
 
   texte_paye = "Payé avec Visa"
-  x, y = 2.1 / 25.4 * 72, (106.5 / 25.4 * 72) + 9.5
+  x, y = 2.1 / 25.4 * 72, (106.5 / 25.4 * 72) + 9.5 + extra_offset
   page.insert_font(fontname="CeraMediumVisa", fontfile=police_medium)
   for c in texte_paye:
     page.insert_text(
@@ -328,7 +353,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.5)
 
   right_pt_599e = 72.8 / 25.4 * 72
-  top_pt_599e = 106.5 / 25.4 * 72
+  top_pt_599e = (106.5 / 25.4 * 72) + extra_offset
   page.insert_font(
       fontname="CeraMediumMontantVisa", fontfile=police_medium
   )
@@ -349,7 +374,7 @@ def generer_ticket_pdf(
 
   largeur_img_pt = 74 / 25.4 * 72
   left_img_pt = 0.6 / 25.4 * 72
-  top_img_pt = 120.3 / 25.4 * 72
+  top_img_pt = (120.3 / 25.4 * 72) + extra_offset
   img_doc = fitz.open(image_avis_path)
   hauteur_img_pt = (
       largeur_img_pt * img_doc[0].rect.height / img_doc[0].rect.width
@@ -366,7 +391,7 @@ def generer_ticket_pdf(
 
   largeur_w99_pt = 14 / 25.4 * 72
   left_w99_pt = 23.7 / 25.4 * 72
-  top_w99_pt = 124.5 / 25.4 * 72
+  top_w99_pt = (124.5 / 25.4 * 72) + extra_offset
   img_w99_doc = fitz.open(image_width99_path)
   hauteur_w99_pt = (
       largeur_w99_pt
@@ -384,7 +409,7 @@ def generer_ticket_pdf(
   )
 
   texte_juger = "Comment jugez-"
-  x, y = 39.8 / 25.4 * 72, (124.7 / 25.4 * 72) + 10.5
+  x, y = 39.8 / 25.4 * 72, (124.7 / 25.4 * 72) + 10.5 + extra_offset
   page.insert_font(fontname="CeraBoldJuger", fontfile=police_bold)
   for c in texte_juger:
     page.insert_text(
@@ -397,7 +422,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=10.5)
 
   texte_vv = "vous votre"
-  x, y = 39.8 / 25.4 * 72, (129 / 25.4 * 72) + 10.4
+  x, y = 39.8 / 25.4 * 72, (129 / 25.4 * 72) + 10.4 + extra_offset
   page.insert_font(
       fontname="CeraBoldVousVotre", fontfile=police_bold
   )
@@ -412,7 +437,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=10.4)
 
   texte_exp = "expérience ?"
-  x, y = 39.8 / 25.4 * 72, (133.2 / 25.4 * 72) + 10.4
+  x, y = 39.8 / 25.4 * 72, (133.2 / 25.4 * 72) + 10.4 + extra_offset
   page.insert_font(
       fontname="CeraBoldExperience", fontfile=police_bold
   )
@@ -427,7 +452,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=10.4)
 
   texte_sinon = "Sinon, répondez en 3 minutes à notre"
-  x, y = 23.6 / 25.4 * 72, (143.8 / 25.4 * 72) + 8
+  x, y = 23.6 / 25.4 * 72, (143.8 / 25.4 * 72) + 8 + extra_offset
   page.insert_font(
       fontname="CeraMediumSinon", fontfile=police_medium
   )
@@ -442,7 +467,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=8)
 
   texte_quest = "questionnaire sur LEGO.com/"
-  x, y = 23.6 / 25.4 * 72, (146.5 / 25.4 * 72) + 8
+  x, y = 23.6 / 25.4 * 72, (146.5 / 25.4 * 72) + 8 + extra_offset
   page.insert_font(
       fontname="CeraMediumQuestionnaire", fontfile=police_medium
   )
@@ -457,7 +482,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=8)
 
   texte_ss = "storesurvey"
-  x, y = 23.5 / 25.4 * 72, (149.3 / 25.4 * 72) + 8
+  x, y = 23.5 / 25.4 * 72, (149.3 / 25.4 * 72) + 8 + extra_offset
   page.insert_font(
       fontname="CeraMediumStoreSurvey", fontfile=police_medium
   )
@@ -472,7 +497,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=8)
 
   texte_besoin = "Au besoin, utilisez ce code :"
-  x, y = 23.5 / 25.4 * 72, (154.2 / 25.4 * 72) + 8
+  x, y = 23.5 / 25.4 * 72, (154.2 / 25.4 * 72) + 8 + extra_offset
   page.insert_font(
       fontname="CeraMediumAuBesoin", fontfile=police_medium
   )
@@ -486,7 +511,7 @@ def generer_ticket_pdf(
     )
     x += font_medium.text_length(c, fontsize=8)
 
-  x, y = 23.5 / 25.4 * 72, (157 / 25.4 * 72) + 8
+  x, y = 23.5 / 25.4 * 72, (157 / 25.4 * 72) + 8 + extra_offset
   page.insert_font(
       fontname="CeraMediumCodeBesoin", fontfile=police_medium
   )
@@ -502,14 +527,14 @@ def generer_ticket_pdf(
 
   s1 = page.new_shape()
   s1.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 168 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 168 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (168 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (168 / 25.4 * 72) + extra_offset),
   )
   s1.finish(color=(0, 0, 0), width=1)
   s1.commit()
 
   texte_ins_titre = "Deviens un LEGO® Insider !"
-  x, y = 14 / 25.4 * 72, (170.8 / 25.4 * 72) + 10.5
+  x, y = 14 / 25.4 * 72, (170.8 / 25.4 * 72) + 10.5 + extra_offset
   page.insert_font(fontname="CeraBoldInsider", fontfile=police_bold)
   for c in texte_ins_titre:
     page.insert_text(
@@ -522,7 +547,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=10.5)
 
   texte_ins1 = "Rejoins le programme LEGO® Insiders pour"
-  x, y = 4 / 25.4 * 72, (177.2 / 25.4 * 72) + 9.7
+  x, y = 4 / 25.4 * 72, (177.2 / 25.4 * 72) + 9.7 + extra_offset
   page.insert_font(
       fontname="CeraMediumInsider1", fontfile=police_medium
   )
@@ -537,7 +562,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.7) - 0.1
 
   texte_ins2 = "profiter de formidables avantages et"
-  x, y = 8.8 / 25.4 * 72, (180.7 / 25.4 * 72) + 9.7
+  x, y = 8.8 / 25.4 * 72, (180.7 / 25.4 * 72) + 9.7 + extra_offset
   page.insert_font(
       fontname="CeraMediumInsider2", fontfile=police_medium
   )
@@ -552,7 +577,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.7) - 0.1
 
   texte_ins3 = "récompenses LEGO®"
-  x, y = 21.3 / 25.4 * 72, (184 / 25.4 * 72) + 9.7
+  x, y = 21.3 / 25.4 * 72, (184 / 25.4 * 72) + 9.7 + extra_offset
   page.insert_font(
       fontname="CeraMediumInsider3", fontfile=police_medium
   )
@@ -567,7 +592,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.7) - 0.1
 
   texte_ins_url = "LEGO.com/insiders"
-  x, y = 22.2 / 25.4 * 72, (189 / 25.4 * 72) + 9.7
+  x, y = 22.2 / 25.4 * 72, (189 / 25.4 * 72) + 9.7 + extra_offset
   page.insert_font(
       fontname="CeraMediumInsiderUrl", fontfile=police_medium
   )
@@ -583,14 +608,14 @@ def generer_ticket_pdf(
 
   s2 = page.new_shape()
   s2.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 196.2 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 196.2 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (196.2 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (196.2 / 25.4 * 72) + extra_offset),
   )
   s2.finish(color=(0, 0, 0), width=1)
   s2.commit()
 
   texte_titre = "S'abonner aux e-mails"
-  x, y = 18.3 / 25.4 * 72, (198.8 / 25.4 * 72) + 10.5
+  x, y = 18.3 / 25.4 * 72, (198.8 / 25.4 * 72) + 10.5 + extra_offset
   page.insert_font(fontname="CeraBoldAbonner", fontfile=police_bold)
   for c in texte_titre:
     page.insert_text(
@@ -603,7 +628,7 @@ def generer_ticket_pdf(
     x += font_bold.text_length(c, fontsize=10.5)
 
   texte_l1 = "Suivez notre actualité en vous abonnant à"
-  x, y = 4.8 / 25.4 * 72, (205.5 / 25.4 * 72) + 9.5
+  x, y = 4.8 / 25.4 * 72, (205.5 / 25.4 * 72) + 9.5 + extra_offset
   page.insert_font(
       fontname="CeraMediumAbonner1", fontfile=police_medium
   )
@@ -618,7 +643,7 @@ def generer_ticket_pdf(
     x += font_medium.text_length(c, fontsize=9.5) - 0.02
 
   texte_l2 = "notre programme d'e-mails LEGO.com/email"
-  x, y = 2.5 / 25.4 * 72, (208.8 / 25.4 * 72) + 9.5
+  x, y = 2.5 / 25.4 * 72, (208.8 / 25.4 * 72) + 9.5 + extra_offset
   page.insert_font(
       fontname="CeraMediumAbonner2", fontfile=police_medium
   )
@@ -634,14 +659,14 @@ def generer_ticket_pdf(
 
   s3 = page.new_shape()
   s3.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 216.2 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 216.2 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (216.2 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (216.2 / 25.4 * 72) + extra_offset),
   )
   s3.finish(color=(0, 0, 0), width=1.3)
   s3.commit()
 
   texte_secu = "Caractéristiques de sécurité"
-  x, y = 12.9 / 25.4 * 72, (218.8 / 25.4 * 72) + 10.5
+  x, y = 12.9 / 25.4 * 72, (218.8 / 25.4 * 72) + 10.5 + extra_offset
   page.insert_font(fontname="CeraBoldSecurite", fontfile=police_bold)
   for c in texte_secu:
     page.insert_text(
@@ -655,7 +680,7 @@ def generer_ticket_pdf(
 
   largeur_w200_pt = 38.1 / 25.4 * 72
   left_w200_pt = 18.4 / 25.4 * 72
-  top_w200_pt = 228.8 / 25.4 * 72
+  top_w200_pt = (228.8 / 25.4 * 72) + extra_offset
   img_w200_doc = fitz.open(image_width200_path)
   hauteur_w200_pt = (
       largeur_w200_pt
@@ -674,15 +699,15 @@ def generer_ticket_pdf(
 
   s4 = page.new_shape()
   s4.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 293 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 293 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (293 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (293 / 25.4 * 72) + extra_offset),
   )
   s4.finish(color=(0, 0, 0), width=1)
   s4.commit()
 
   page.insert_font(fontname="CeraBoldDuplicata", fontfile=police_bold)
   page.insert_text(
-      (2 / 25.4 * 72, (268.1 / 25.4 * 72) + 7.2),
+      (2 / 25.4 * 72, (268.1 / 25.4 * 72) + 7.2 + extra_offset),
       "Duplicata",
       fontname="CeraBoldDuplicata",
       fontsize=7.2,
@@ -693,7 +718,7 @@ def generer_ticket_pdf(
       fontname="CeraMediumDuplicataRef", fontfile=police_medium
   )
   page.insert_text(
-      (2 / 25.4 * 72, (270.8 / 25.4 * 72) + 7.2),
+      (2 / 25.4 * 72, (270.8 / 25.4 * 72) + 7.2 + extra_offset),
       "1. Duplicata de 7fd15f69-a829-4946-b76d-fe8c93929286",
       fontname="CeraMediumDuplicataRef",
       fontsize=7.2,
@@ -702,7 +727,7 @@ def generer_ticket_pdf(
 
   page.insert_font(fontname="CeraMediumLNE", fontfile=police_medium)
   page.insert_text(
-      (2 / 25.4 * 72, (273.1 / 25.4 * 72) + 7.2),
+      (2 / 25.4 * 72, (273.1 / 25.4 * 72) + 7.2 + extra_offset),
       "Système de caisse certifié LNE",
       fontname="CeraMediumLNE",
       fontsize=7.2,
@@ -711,7 +736,7 @@ def generer_ticket_pdf(
 
   page.insert_font(fontname="CeraMediumLegal1", fontfile=police_medium)
   page.insert_text(
-      (6.5 / 25.4 * 72, (278.5 / 25.4 * 72) + 7.2),
+      (6.5 / 25.4 * 72, (278.5 / 25.4 * 72) + 7.2 + extra_offset),
       "LEGO BRAND RETAIL S.A.S est enregistré au Registre",
       fontname="CeraMediumLegal1",
       fontsize=7.2,
@@ -720,7 +745,7 @@ def generer_ticket_pdf(
 
   page.insert_font(fontname="CeraMediumLegal2", fontfile=police_medium)
   page.insert_text(
-      (2.5 / 25.4 * 72, (281 / 25.4 * 72) + 7.2),
+      (2.5 / 25.4 * 72, (281 / 25.4 * 72) + 7.2 + extra_offset),
       "national des metteurs sur le marché des jeux et jouets sous",
       fontname="CeraMediumLegal2",
       fontsize=7.2,
@@ -729,7 +754,7 @@ def generer_ticket_pdf(
 
   page.insert_font(fontname="CeraMediumLegal3", fontfile=police_medium)
   page.insert_text(
-      (20.8 / 25.4 * 72, (283.5 / 25.4 * 72) + 7.2),
+      (20.8 / 25.4 * 72, (283.5 / 25.4 * 72) + 7.2 + extra_offset),
       "le numéro FR214763_12TBLL.",
       fontname="CeraMediumLegal3",
       fontsize=7.2,
@@ -738,7 +763,7 @@ def generer_ticket_pdf(
 
   page.insert_font(fontname="CeraBoldCBTitre", fontfile=police_bold)
   page.insert_text(
-      (2 / 25.4 * 72, (295.2 / 25.4 * 72) + 10.5),
+      (2 / 25.4 * 72, (295.2 / 25.4 * 72) + 10.5 + extra_offset),
       "Ticket de carte bancaire",
       fontname="CeraBoldCBTitre",
       fontsize=10.5,
@@ -747,7 +772,7 @@ def generer_ticket_pdf(
 
   page.insert_font(fontname="CeraMediumCBDate", fontfile=police_medium)
   page.insert_text(
-      (2 / 25.4 * 72, (300.8 / 25.4 * 72) + 9.5),
+      (2 / 25.4 * 72, (300.8 / 25.4 * 72) + 9.5 + extra_offset),
       "Date/Heure",
       fontname="CeraMediumCBDate",
       fontsize=9.5,
@@ -758,7 +783,7 @@ def generer_ticket_pdf(
       fontname="CeraMediumCBValeurDate", fontfile=police_medium
   )
   page.insert_text(
-      (40.8 / 25.4 * 72, (300.8 / 25.4 * 72) + 9.5),
+      (40.8 / 25.4 * 72, (300.8 / 25.4 * 72) + 9.5 + extra_offset),
       date_valeur,
       fontname="CeraMediumCBValeurDate",
       fontsize=9.5,
@@ -815,7 +840,7 @@ def generer_ticket_pdf(
   for f1, f2, l_txt, v_txt, top_m, x1_m, x2_m in infos_cb:
     page.insert_font(fontname=f1, fontfile=police_medium)
     page.insert_text(
-        (x1_m / 25.4 * 72, (top_m / 25.4 * 72) + 9.5),
+        (x1_m / 25.4 * 72, (top_m / 25.4 * 72) + 9.5 + extra_offset),
         l_txt,
         fontname=f1,
         fontsize=9.5,
@@ -823,7 +848,7 @@ def generer_ticket_pdf(
     )
     page.insert_font(fontname=f2, fontfile=police_medium)
     page.insert_text(
-        (x2_m / 25.4 * 72, (top_m / 25.4 * 72) + 9.5),
+        (x2_m / 25.4 * 72, (top_m / 25.4 * 72) + 9.5 + extra_offset),
         v_txt,
         fontname=f2,
         fontsize=9.5,
@@ -832,15 +857,15 @@ def generer_ticket_pdf(
 
   s5 = page.new_shape()
   s5.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 324.8 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 324.8 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (324.8 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (324.8 / 25.4 * 72) + extra_offset),
   )
   s5.finish(color=(0, 0, 0), width=1.3)
   s5.commit()
 
   largeur_w87_pt = 13.8 / 25.4 * 72
   left_w87_pt = 59 / 25.4 * 72
-  top_w87_pt = 328 / 25.4 * 72
+  top_w87_pt = (328 / 25.4 * 72) + extra_offset
   img_w87_doc = fitz.open(image_width87_path)
   hauteur_w87_pt = (
       largeur_w87_pt
@@ -861,7 +886,7 @@ def generer_ticket_pdf(
       fontname="CeraBoldDetailsCommande", fontfile=police_bold
   )
   page.insert_text(
-      (2 / 25.4 * 72, (327.3 / 25.4 * 72) + 10.5),
+      (2 / 25.4 * 72, (327.3 / 25.4 * 72) + 10.5 + extra_offset),
       "Détails de la commande",
       fontname="CeraBoldDetailsCommande",
       fontsize=10.5,
@@ -889,7 +914,7 @@ def generer_ticket_pdf(
   for f1, f2, l_txt, v_txt, top_m, x_val in details_cmd:
     page.insert_font(fontname=f1, fontfile=police_medium)
     page.insert_text(
-        (2 / 25.4 * 72, (top_m / 25.4 * 72) + 8),
+        (2 / 25.4 * 72, (top_m / 25.4 * 72) + 8 + extra_offset),
         l_txt,
         fontname=f1,
         fontsize=8,
@@ -897,7 +922,7 @@ def generer_ticket_pdf(
     )
     page.insert_font(fontname=f2, fontfile=police_medium)
     page.insert_text(
-        (x_val / 25.4 * 72, (top_m / 25.4 * 72) + 8),
+        (x_val / 25.4 * 72, (top_m / 25.4 * 72) + 8 + extra_offset),
         v_txt,
         fontname=f2,
         fontsize=8,
@@ -908,7 +933,7 @@ def generer_ticket_pdf(
       fontname="CeraMediumDetailsHeureValeur", fontfile=police_medium
   )
   page.insert_text(
-      (30.4 / 25.4 * 72, (338.2 / 25.4 * 72) + 8),
+      (30.4 / 25.4 * 72, (338.2 / 25.4 * 72) + 8 + extra_offset),
       heure_valeur,
       fontname="CeraMediumDetailsHeureValeur",
       fontsize=8,
@@ -917,8 +942,8 @@ def generer_ticket_pdf(
 
   s6 = page.new_shape()
   s6.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 345 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 345 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (345 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (345 / 25.4 * 72) + extra_offset),
   )
   s6.finish(color=(0, 0, 0), width=1)
   s6.commit()
@@ -946,7 +971,7 @@ def generer_ticket_pdf(
   for fname, g_txt, x_m, top_m in garanties:
     page.insert_font(fontname=fname, fontfile=police_medium)
     page.insert_text(
-        (x_m / 25.4 * 72, (top_m / 25.4 * 72) + 8),
+        (x_m / 25.4 * 72, (top_m / 25.4 * 72) + 8 + extra_offset),
         g_txt,
         fontname=fname,
         fontsize=8,
@@ -955,8 +980,8 @@ def generer_ticket_pdf(
 
   s7 = page.new_shape()
   s7.draw_line(
-      fitz.Point(2.2 / 25.4 * 72, 360.2 / 25.4 * 72),
-      fitz.Point(73 / 25.4 * 72, 360.2 / 25.4 * 72),
+      fitz.Point(2.2 / 25.4 * 72, (360.2 / 25.4 * 72) + extra_offset),
+      fitz.Point(73 / 25.4 * 72, (360.2 / 25.4 * 72) + extra_offset),
   )
   s7.finish(color=(0, 0, 0), width=1.3)
   s7.commit()
@@ -970,7 +995,7 @@ def generer_ticket_pdf(
   for fname, r_txt, x_m, top_m in retails:
     page.insert_font(fontname=fname, fontfile=police_medium)
     page.insert_text(
-        (x_m / 25.4 * 72, (top_m / 25.4 * 72) + 8),
+        (x_m / 25.4 * 72, (top_m / 25.4 * 72) + 8 + extra_offset),
         r_txt,
         fontname=fname,
         fontsize=8,
