@@ -145,15 +145,17 @@ def generer_ticket_pdf(
   # ARTICLE DYNAMIQUE & CALCUL DU DÉCALAGE
   # ==========================================
   taille_article = 9.5
-  max_width_article_pt = 45 / 25.4 * 72  # Largeur max avant retour à la ligne
-  
+  max_width_article_pt = 45 / 25.4 * 72
+
   mots = nom_article.split(" ")
   lignes_article = []
   ligne_courante = ""
-  
+
   for mot in mots:
     test_ligne = f"{ligne_courante} {mot}".strip() if ligne_courante else mot
-    largeur_test = sum(font_medium.text_length(c, fontsize=taille_article) for c in test_ligne)
+    largeur_test = sum(
+        font_medium.text_length(c, fontsize=taille_article) for c in test_ligne
+    )
     if largeur_test <= max_width_article_pt:
       ligne_courante = test_ligne
     else:
@@ -164,7 +166,7 @@ def generer_ticket_pdf(
     lignes_article.append(ligne_courante)
 
   start_y_article = 66 / 25.4 * 72
-  line_height_pt = 12  
+  line_height_pt = 12
 
   page.insert_font(fontname="CeraMediumArtDyn", fontfile=police_medium)
   for i, ligne in enumerate(lignes_article):
@@ -173,11 +175,14 @@ def generer_ticket_pdf(
     y = current_y + taille_article
     for c in ligne:
       page.insert_text(
-          (x, y), c, fontname="CeraMediumArtDyn", fontsize=taille_article, color=(0, 0, 0)
+          (x, y),
+          c,
+          fontname="CeraMediumArtDyn",
+          fontsize=taille_article,
+          color=(0, 0, 0),
       )
       x += font_medium.text_length(c, fontsize=taille_article)
 
-  # Décalage global pour tout ce qui se trouve sous l'article
   extra_offset = (len(lignes_article) - 1) * line_height_pt
 
   # Prix article dynamique
@@ -779,16 +784,26 @@ def generer_ticket_pdf(
       color=(0, 0, 0),
   )
 
+  # Date carte bancaire alignée à droite de manière fixe
+  right_pt_date = 72.8 / 25.4 * 72
+  top_pt_date = (300.8 / 25.4 * 72) + extra_offset
   page.insert_font(
       fontname="CeraMediumCBValeurDate", fontfile=police_medium
   )
-  page.insert_text(
-      (40.8 / 25.4 * 72, (300.8 / 25.4 * 72) + 9.5 + extra_offset),
-      date_valeur,
-      fontname="CeraMediumCBValeurDate",
-      fontsize=9.5,
-      color=(0, 0, 0),
+  largeur_totale_date = sum(
+      font_medium.text_length(c, fontsize=9.5) for c in date_valeur
   )
+  x_date = right_pt_date - largeur_totale_date
+  y_date = top_pt_date + 9.5
+  for c in date_valeur:
+    page.insert_text(
+        (x_date, y_date),
+        c,
+        fontname="CeraMediumCBValeurDate",
+        fontsize=9.5,
+        color=(0, 0, 0),
+    )
+    x_date += font_medium.text_length(c, fontsize=9.5)
 
   infos_cb = [
       (
@@ -1048,11 +1063,9 @@ class TicketCog(commands.Cog):
     self.bot = bot
 
   def get_user_coins(self, user_id: int) -> int:
-    # TODO: Remplace par ta vraie logique de lecture de la base de données
     return 5
 
   def remove_user_coins(self, user_id: int, amount: int):
-    # TODO: Remplace par ta vraie logique de mise à jour des coins
     pass
 
   @discord.app_commands.command(
