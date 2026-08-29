@@ -40,6 +40,7 @@ async def main():
     await client.load_extension("ticket")
     await client.load_extension("stock")
     await client.load_extension("autorole")
+    await client.load_extension("tos")
 
     await client.start(TOKEN)
 
