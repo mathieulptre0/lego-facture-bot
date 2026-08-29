@@ -46,7 +46,7 @@ class TosCog(commands.Cog):
     now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
     footer_text = f"{bot_name} | {now_str}"
 
-    # Construction de l'embed TOS
+    # Construction de l'embed TOS avec une ligne vide sous chaque titre
     embed_tos = discord.Embed(
         title="<:tos:1542297487346376834> Terms Of Services",
         description=(
@@ -55,31 +55,31 @@ class TosCog(commands.Cog):
             " provisions** as well as all **applicable laws and regulations**."
             " If you **do not agree** to any of the provisions set forth herein,"
             " you must **immediately cease** all use of the **Website**.\n\n"
-            "<:number1:1543052524724953108> __**Payment and Pricing** :__\n"
+            "<:number1:1543052524724953108> __**Payment and Pricing** :__\n\n"
             "> Any **purchase** made on our **online store** is subject to the"
             " **prices in effect** at the time of the order. You agree to"
             " **provide accurate, complete, and up-to-date** payment information"
             " and to **complete the transaction** within the **allotted"
             " time**.\n\n"
-            "<:number2:1543052500071092416> __**Refunds** :__\n"
+            "<:number2:1543052500071092416> __**Refunds** :__\n\n"
             "> Unless **otherwise stated** or subject to **specific"
             " conditions** specified at the time of purchase, **refunds are"
             " generally not granted**.\n"
             "It is your **responsibility** to carefully **review the service"
             " description** as well as the applicable **refund policy** prior"
             " to placing any order.\n\n"
-            "<:number3:1543052592018362388> __**Chargebacks** :__\n"
+            "<:number3:1543052592018362388> __**Chargebacks** :__\n\n"
             "> In the event of a **payment dispute**, chargeback, or any claim"
             " related to a transaction initiated by you, we **reserve the"
             " right** to immediately **suspend or terminate** your access to"
             " the **services** provided via our store, without prejudice to any"
             " other available remedy.\n\n"
-            "<:number4:1543052682082652161> __**Access Termination**__\n"
+            "<:number4:1543052682082652161> __**Access Termination**__\n\n"
             "> We **reserve the right** to **terminate your purchases**, as well"
             " as your access to the **store and associated services**, in the"
             " event of a **violation of this Agreement** or any **illegal,"
             " fraudulent, or unauthorized use** of our services.\n\n"
-            "<:number5:1543052758234439772> __**Modifications** :__\n"
+            "<:number5:1543052758234439772> __**Modifications** :__\n\n"
             "> We **reserve the right** to **modify or update** this Agreement"
             " at any time and **without prior notice**. Continued use of our"
             " **Discord** after the **publication of any modifications**"
