@@ -144,7 +144,7 @@ class StockSelect(discord.ui.Select):
                 color=discord.Color.red()
             )
             error_embed.set_footer(
-                text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+                text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y at %H:%M')}",
                 icon_url=interaction.client.user.display_avatar.url
             )
             await interaction.response.send_message(embed=error_embed, ephemeral=True)
@@ -221,7 +221,7 @@ class StockPanelView(discord.ui.View):
             embed.add_field(name="<:number:1543005258068918302> Quantity", value="\n".join(qtys), inline=True)
 
         embed.set_footer(
-            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y at %H:%M')}",
             icon_url=self.bot.user.display_avatar.url
         )
 
@@ -267,7 +267,7 @@ class StockPanelView(discord.ui.View):
             )
 
         public_embed.set_footer(
-            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y at %H:%M')}",
             icon_url=interaction.client.user.display_avatar.url
         )
         
@@ -355,7 +355,7 @@ class Stock(commands.Cog):
             color=0x0058ff
         )
         public_embed.set_footer(
-            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y at %H:%M')}",
             icon_url=self.bot.user.display_avatar.url
         )
         stock_msg = await stock_channel.send(embed=public_embed)
@@ -369,7 +369,7 @@ class Stock(commands.Cog):
             color=0x0058ff
         )
         panel_embed.set_footer(
-            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y à %H:%M')}",
+            text=f"Receipt Tool | {interaction.created_at.strftime('%d/%m/%Y at %H:%M')}",
             icon_url=self.bot.user.display_avatar.url
         )
 

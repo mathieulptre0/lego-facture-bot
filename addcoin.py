@@ -36,7 +36,7 @@ class AddCoin(commands.Cog):
 
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
         bot_name = self.bot.user.name if self.bot.user else "Bot"
-        now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        now_str = datetime.now().strftime("%d/%m/%Y at %H:%M")
         footer_text = f"{bot_name} | {now_str}"
 
         user_role_ids = [role.id for role in interaction.user.roles]

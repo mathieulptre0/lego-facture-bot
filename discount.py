@@ -47,7 +47,7 @@ class Discount(commands.Cog):
         # Récupération de l'avatar et du nom du bot pour le footer
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
         bot_name = self.bot.user.name if self.bot.user else "Bot"
-        now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        now_str = datetime.now().strftime("%d/%m/%Y at %H:%M")
         footer_text = f"{bot_name} | {now_str}"
 
         # 1. Vérification des rôles autorisés

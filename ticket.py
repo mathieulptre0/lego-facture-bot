@@ -213,7 +213,7 @@ class TicketView(discord.ui.View):
 
         bot_avatar = bot.user.display_avatar.url if bot.user else None
         bot_name = bot.user.name if bot.user else "Bot"
-        now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        now_str = datetime.now().strftime("%d/%m/%Y at %H:%M")
         footer_text = f"{bot_name} | {now_str}"
 
         embed_ticket = discord.Embed(color=discord.Color.from_str("#0058ff"))
@@ -277,7 +277,7 @@ class Ticket(commands.Cog):
     async def ticket(self, interaction: discord.Interaction):
         bot_avatar = self.bot.user.display_avatar.url if self.bot.user else None
         bot_name = self.bot.user.name if self.bot.user else "Bot"
-        now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+        now_str = datetime.now().strftime("%d/%m/%Y at %H:%M")
         footer_text = f"{bot_name} | {now_str}"
 
         user_role_ids = [role.id for role in interaction.user.roles]

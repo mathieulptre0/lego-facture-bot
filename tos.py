@@ -43,7 +43,7 @@ class TosCog(commands.Cog):
     bot_user = self.bot.user or interaction.client.user
     bot_name = bot_user.name if bot_user else "Receipt Tool"
     bot_avatar = bot_user.display_avatar.url if bot_user else None
-    now_str = datetime.now().strftime("%d/%m/%Y à %H:%M")
+    now_str = datetime.now().strftime("%d/%m/%Y at %H:%M")
     footer_text = f"{bot_name} | {now_str}"
 
     # Construction de l'embed TOS avec une ligne vide sous chaque titre
