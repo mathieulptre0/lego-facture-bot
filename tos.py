@@ -50,11 +50,11 @@ class TosCog(commands.Cog):
     embed_tos = discord.Embed(
         title="<:tos:1542297487346376834> Terms Of Services",
         description=(
-            "By **accessing or using** the Website, you **acknowledge** that"
-            " you have **read this Agreement** and agree to be **bound by its"
-            " provisions** as well as all **applicable laws and regulations**."
+            "By **accessing or using** the Discord server, you **acknowledge** that"
+            " you have **read this agreement** and agree to be **bound by its"
+            " provisions**, as well as by all **applicable laws and regulations**."
             " If you **do not agree** to any of the provisions set forth herein,"
-            " you must **immediately cease** all use of the **Website**.\n\n"
+            " you must **immediately cease** all use of the **Discord server**.\n\n"
             "<:number1:1543052524724953108> **__Payment and Pricing__ :**\n\n"
             "> Any **purchase** made on our **online store** is subject to the"
             " **prices in effect** at the time of the order. You agree to"
