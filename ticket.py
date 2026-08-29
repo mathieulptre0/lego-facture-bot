@@ -306,7 +306,7 @@ class Ticket(commands.Cog):
                 "To open a **ticket**, please choose the **correct category** below"
                 " that aligns with your **request**. Each ticket should address a"
                 " **single subject**, so ensure you select the most **relevant**"
-                " one.\n\n## <:tos:1542297487346376834> **__Ticket Guidelines__ :**"
+                " one.\n\n<:tos:1542297487346376834> **__Ticket Guidelines__ :**"
                 "\n\n• Do not open **multiple tickets**.\n\n• List your **issue"
                 " carefully** with all **details**, **screenshots**, and"
                 " **videos** to help us fix it **qicker** & **better**.\n\n• "
