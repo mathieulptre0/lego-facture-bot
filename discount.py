@@ -112,7 +112,7 @@ class Discount(commands.Cog):
                     f" **__Discount value__ :**"
                     f" `{percentage}%`\n\n## <:cart:1542297234404802570> How"
                     " use it?\n\n1.) Head over to our **Discord server**"
-                    " in the **dedicated lounge** : <#1541553160018067508>.\n\n2.)"
+                    " in the **dedicated lounge** : <#1542238377837989888>.\n\n2.)"
                     " **Place** your order.\n\n3.) Submit your"
                     " **unique code** to **immediately** apply your"
                     " **reduction**.\n\nThis **code** is **strictly personal**."
